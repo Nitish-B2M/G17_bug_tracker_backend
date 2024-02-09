@@ -11,6 +11,9 @@ router.get('/:username', User.getUser);
 // POST a new user (register)
 router.post('/register', User.createUser);
 
+// POST login
+router.post('/login', User.loginUser);
+
 // PUT update a user
 router.put('/:username', User.updateUser);
 

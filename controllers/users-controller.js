@@ -1,3 +1,4 @@
+const md5 = require('md5');
 const UserModel = require('../models/user-model');
 
 const validateUser = (data) => {
@@ -5,9 +6,7 @@ const validateUser = (data) => {
     const usernameRegex = /^[a-zA-Z][a-zA-Z0-9]+$/;
     const passwordRegex = /^[a-zA-Z0-9@#$%^&*]{6,16}$/;
     const errMessage = {};
-    if (!data.username || !data.password || !data.email || !data.role) {
-        errMessage = "Please provide a username, password, email and role";
-    } else if (data.username.length < 3 || data.password.length < 3 || data.email.length < 3) {
+    if (data.username.length < 3 || data.password.length < 3 || data.email.length < 3) {
         errMessage = "Username, password and email must be at least 3 characters long";
     } else if (data.username.length > 40 || data.password.length > 40 || data.email.length > 40) {
         errMessage = "Username, password and email must be less than 40 characters long";
@@ -19,7 +18,7 @@ const validateUser = (data) => {
         errMessage = "Password can only contain letters, numbers and special characters (@, #, $, %, ^, &, *) and must be between 6 and 16 characters long";
     }
     return errMessage;
-} 
+};
 
 const getAllUsers = async (req, res) => {
     try {
@@ -66,7 +65,7 @@ const getUser = async (req, res) => {
             error: error
         });
     }
-}
+};
 
 const createUser = async (req, res) => {
     try {
@@ -172,6 +171,32 @@ const deleteUser = async (req, res) => {
             error: error
         });
     }
+};
+
+const loginUser = async (req, res) => {
+    try {
+        // get the user name from the request
+        const email = req.body.email;
+        var password = req.body.password;
+        password = md5(password); 
+        // get the user from the database
+        const user = await UserModel.findOne({ email: email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (user.password !== password) {
+            return res.status(401).json({ message: "Invalid password" });
+        }
+        res.status(200).json({
+            message: "Login successful",
+            user: user,
+        });
+    } catch (error) {
+        res.status(500).json({
+            "message": "Error Message",
+            error: error
+        });
+    }
 }
 
 
@@ -181,4 +206,5 @@ module.exports = {
     createUser,
     updateUser,
     deleteUser,
+    loginUser,
 };
