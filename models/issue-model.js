@@ -42,14 +42,14 @@ const issueSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'in progress', 'resolved'],
+        enum: ['open', 'in-progress', 'resolved', 'on-hold'],
         default: 'pending',
     },
     priority: {
         type: String,
-        enum: ['low', 'medium', 'high'],
-        default: 'low',
-    },
+        enum: ['blocker', 'critical', 'major', 'minor'],
+        default: 'minor',
+    }, 
     visibility: {
         type: String,
         enum: ['public', 'private'],

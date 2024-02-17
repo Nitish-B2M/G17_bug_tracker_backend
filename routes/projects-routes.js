@@ -17,4 +17,7 @@ router.put('/:projectname', Project.updateProject);
 // DELETE a project
 router.delete('/:projectname', Project.deleteProject);
 
+// GET all projects for a user
+router.get('/user/:userId', Project.getProjectsForUser);
+
 module.exports = router;

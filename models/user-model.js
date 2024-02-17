@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-// const bcrypt = require('bcryptjs');
+const { isEmail } = require('validator');
 const jwt = require('jsonwebtoken');
 const md5 = require('md5');
 
@@ -26,17 +26,18 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please provide a password'],
         minlength: 3,
-        maxlength: 40,
+        maxlength: 20,
     },
     email: {
         type: String,
         required: [true, 'Please provide an email'],
         unique: true,
         maxlength: 40,
+        validate: [isEmail, 'Please provide a valid email'],
     },
     role: {
         type: String,
-        enum: ['developer', 'manager', 'admin', 'project manager', 'user'],
+        enum: ['developer', 'manager', 'admin', 'user'],
         default: 'user',
     },
     status: {

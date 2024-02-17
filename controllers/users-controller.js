@@ -1,5 +1,7 @@
 const md5 = require('md5');
 const UserModel = require('../models/user-model');
+const jwt = require('jsonwebtoken');
+const session = require('express-session');
 
 const validateUser = (data) => {
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
@@ -187,14 +189,38 @@ const loginUser = async (req, res) => {
         if (user.password !== password) {
             return res.status(401).json({ message: "Invalid password" });
         }
+
+        // generate a token
+        jwt.sign({ userId: user._id, role: user.role,  }, process.env.JWT_SECRET, { expiresIn: "10m" }, (err, token) => {
+            if (err) {
+                return res.status(500).json({ status: false });
+            }
+            console.log(token, "196");
+            req.session.token = user._id + " : " + token;
+        });
+
+        req.session.isLoggedIn = true;
+        req.session.userId = user._id;
+        req.session.username = user.username;
+        req.session.email = user.email;
+        req.session.role = user.role;
+        console.log(req.session.isLoggedIn, "210 session");
+        console.log(req.session.userId, "216 session");
+
         res.status(200).json({
             message: "Login successful",
-            user: user,
+            user: {
+                username: req.session.username,
+                email: req.session.email,
+                role: req.session.role,
+            },
+            isLoggedIn: req.session.isLoggedIn,
         });
+
     } catch (error) {
         res.status(500).json({
-            "message": "Error Message",
-            error: error
+            "message": "Error Message" + error,
+            isLoggedIn: false,
         });
     }
 }

@@ -1,3 +1,4 @@
+const md5 = require('md5');
 const ProjectModel = require('../models/project-model');
 
 
@@ -134,12 +135,41 @@ const deleteProject = async (req, res) => {
     }
 };
 
+// GET all projects for a user
+const getProjectsForUser = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (userId !== req.session.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        } else {
+            const projects = await ProjectModel.find({ created_by: userId });
+            console.log(projects);
+            if (!projects) {
+                return res.status(404).json({ message: "Project not found", status: false });
+            }
+            res.status(200).json({
+                "message": "All project",
+                "projects": projects,
+                status: true
+            });
+        }
+
+    } catch (error) {
+        res.status(500).json({
+            "message": "Error Message" + error,
+            status: false
+        });
+    }
+};
+
 module.exports = {
     getAllProject,
     getProject,
     createProject,
     updateProject,
-    deleteProject
+    deleteProject,
+    getProjectsForUser
 };
 
 

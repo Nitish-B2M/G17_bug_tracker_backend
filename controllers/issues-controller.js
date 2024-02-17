@@ -56,40 +56,72 @@ const getIssue = async (req, res) => {
     }
 };
 
+// type cast string to enum
+function typeCast(status, enumArray) {
+    for (var i = 0; i < enumArray.length; i++) {
+        if (status === enumArray[i]) {
+            return enumArray[i];
+        }
+    }
+}
+
 // POST a new issue
 const createIssue = async (req, res) => {
+    // work on this function
     try {
-        console.log(req.body);
         const issue = await Issue.findOne({ title : req.body.title });
         if (issue) {
             console.log("Issue already exists");
             return res.status(400).json({ message: "Issue already exists" });
         } else {
+            // type cast status to enum
+            var status = req.body.status;
+            var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
+            var typeCastStatus = typeCast(status, enumStatus);       
+            // type cast priority to enum
+            var priority = req.body.priority;
+            var enumPriority = ['blocker', 'critical', 'major', 'minor'];
+            var typeCastPriority = typeCast(priority, enumPriority);
+            // type cast visibility to enum
+            var visibility = req.body.visibility;
+            var enumVisibility = ['public', 'private'];
+            var typeCastVisibility = typeCast(visibility, enumVisibility);
+            // type cast feature to enum
+            var feature = req.body.feature;
+            var enumFeature = ['bug', 'defect', 'enhancement'];
+            var typeCastFeature = typeCast(feature, enumFeature);
+
+            
+
             const issue = {
                 title: req.body.title,
                 description: req.body.description,
                 project_id: req.body.project_id,
                 created_by: req.body.created_by,
-                status: req.body.status,
-                priority: req.body.priority,
-                visibility: req.body.visibility,
-                feature: req.body.feature,
+                status: typeCastStatus,
+                priority: typeCastPriority,
+                visibility: typeCastVisibility,
+                feature: typeCastFeature,
                 due_date: req.body.due_date,
                 last_updated_by: req.body.last_updated_by
             }
+            console.log(req.body);
             const newIssue = await Issue.create(issue);
+            
             res.status(201).json({
                 "message": "Issue created",
-                "issue": newIssue
+                "issue": newIssue,
+                "status": true
             });
         }
     }
     catch (error) {
         res.status(500).json({
-            "message": "Error Message",
-            error: error
+            "message": "Error Message: " + error + " from createIssue",
+            "status": false
         });
     }
+
 };
 
 // PUT update an issue
