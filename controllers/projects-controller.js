@@ -1,24 +1,38 @@
-const md5 = require('md5');
 const ProjectModel = require('../models/project-model');
 
+const commonCatchBlock = (error, next) => {
+    next({
+        statusCode: 500,
+        status: false,
+        message: "Internal Server Error",
+        extraDetails: error,
+    });
+};
+
+const commonItemNotFound = (message, next) => {
+    next({
+        statusCode: 404,
+        status: false,
+        message: message,
+    });
+};
 
 // GET all project
-const getAllProject = async (req, res) => {
+const getAllProject = async (req, res, next) => {
     try {
         const project = await ProjectModel.find({}).populate({
             path: 'created_by',
             select: 'username email'
         });
         console.log(JSON.stringify(project, null, 4));
-        res.status(200).json({
-            "message": "All project",
-            "project": project
+        next({
+            statusCode: 200,
+            status: true,
+            message: "All project",
+            data: project,
         });
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message",
-            error: error
-        });
+        commonCatchBlock(error, next);
     }
 };
 
@@ -29,35 +43,34 @@ const getProject = async (req, res) => {
         
         ProjectModel.findOne({ name: name }).then((project) => {
             if (!project) {
-                return res.status(404).json({ message: "Project not found" });
+                commonItemNotFound("Project not found", next);
             }
-            res.status(200).json({
-                message: "All project",
-                project: project,
+            next({
+                statusCode: 200,
+                status: true,
+                message: "Project found",
+                data: project,
             });
         }).catch((error) => {
-            res.status(500).json({
-                "message": "Error Message",
-                error: error
-            });
-        }
-        );
-    } catch (error) {
-        res.status(500).json({
-            "message": "Error Message",
-            error: error
+            commonCatchBlock(error, next);
         });
+    } catch (error) {
+        commonCatchBlock(error, next);
     }
 };
 
 // POST a new project
-const createProject = async (req, res) => {
+const createProject = async (req, res, next) => {
     try {
         console.log(req.body);
         const project = await ProjectModel.findOne({ projectname: req.body.projectname });
         if (project) {
             console.log("Project already exists");
-            return res.status(400).json({ message: "Project already exists" });
+            next({
+                statusCode: 400,
+                status: false,
+                message: "Project already exists",
+            });
         } else {
             const project = {
                 projectname: req.body.projectname,
@@ -73,26 +86,38 @@ const createProject = async (req, res) => {
             }
             const newProject = new ProjectModel(project);
             await newProject.save();
-            res.status(200).json({
-                "message": "Project created",
-                "project": newProject
+            next({
+                statusCode: 201,
+                status: true,
+                message: "Project created successfully",
+                data: {
+                    projectId: newProject._id,
+                    projectname: newProject.projectname,
+                    title: newProject.title,
+                    description: newProject.description,
+                    created_by: newProject.created_by,
+                    lead: newProject.lead,
+                    status: newProject.status,
+                    department: newProject.department,
+                }
             });
         }   
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message",
-            error: error
+        next({
+            statusCode: 500,
+            message: "Internal Server Error",
+            extraDetails: error,
         });
     }
 };
 
 // PUT update a project
-const updateProject = async (req, res) => {
+const updateProject = async (req, res, next) => {
     try {
         const projectname = req.params.projectname;
         const project = await ProjectModel.findOne({ projectname: projectname });
         if (!project) {
-            return res.status(404).json({ message: "Project not found" });
+            commonItemNotFound("Project not found", next);
         }
         project.projectname = req.body.projectname;
         project.title = req.body.title;
@@ -103,63 +128,67 @@ const updateProject = async (req, res) => {
         project.status = req.body.status;
         project.department = req.body.department;
         await project.save();
-        res.status(200).json({
-            "message": "Project updated",
-            "updatedProject": project
+        next({
+            statusCode: 200,
+            status: true,
+            message: "Project updated successfully",
+            data: {
+                projectId: project._id,
+                projectname: project.projectname,
+                title: project.title,
+                description: project.description,
+                created_by: project.created_by,
+                lead: project.lead,
+                status: project.status,
+                department: project.department,
+            }
         });
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message",
-            error: error
-        });
+        commonCatchBlock(error, next);
     }
 };
 
 // DELETE a project
-const deleteProject = async (req, res) => {
+const deleteProject = async (req, res, next) => {
     try {
         const projectname = req.params.projectname;
         const projectDelete = await ProjectModel.findOneAndDelete({ projectname: projectname });
         if (!projectDelete) {
-            return res.status(404).json({ message: "Project not found" });
+            commonItemNotFound("Project not found", next);
         }
-        res.status(200).json({
-            "message": "Project deleted",
-            "deletedProject": projectDelete
+        next({
+            statusCode: 200,
+            status: true,
+            message: "Project deleted successfully",
+            data: projectDelete,
         });
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message",
-            error: error
-        });
+        commonCatchBlock(error, next);
     }
 };
 
 // GET all projects for a user
-const getProjectsForUser = async (req, res) => {
+const getProjectsForUser = async (req, res, next) => {
     try {
         const userId = req.params.userId;
 
-        if (userId !== req.session.userId) {
-            return res.status(401).json({ message: "Unauthorized" });
-        } else {
+        // if (userId !== req.session.userId) {
+        //     return res.status(401).json({ message: "Unauthorized" });
+        // } else {
             const projects = await ProjectModel.find({ created_by: userId });
-            console.log(projects);
             if (!projects) {
-                return res.status(404).json({ message: "Project not found", status: false });
+                commonItemNotFound("No projects found", next);
             }
-            res.status(200).json({
-                "message": "All project",
-                "projects": projects,
-                status: true
+            next({
+                statusCode: 200,
+                status: true,
+                message: "Projects found",
+                data: projects,
             });
-        }
+        // }
 
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message" + error,
-            status: false
-        });
+        commonCatchBlock(error, next);
     }
 };
 

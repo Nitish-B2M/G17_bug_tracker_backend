@@ -15,12 +15,13 @@ const mongoose = require('mongoose');
 // - updated_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 // - last_updated_by INT(11)     FOREIGN KEY       REFERENCES user(id)
 
+// unique: true, the combination of title and project_id should be unique how to do this in mongoose
+
 
 const issueSchema = new mongoose.Schema({
     title: {
         type: String,
         required: [true, 'Please provide a title'],
-        unique: true,
         minlength: 3,
         maxlength: 50,
     },

@@ -5,6 +5,7 @@ const connectDB = require("./db/connect");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authMiddleware = require("./middleware/authMiddleware");
+const MessageMiddleware = require("./middleware/messageMiddleware");
 const session = require('express-session');
 
 const port = process.env.PORT || 3300;
@@ -42,11 +43,14 @@ const authRouter = require("./routes/auth-routes");
 
 
 // use the middleware for all the routes
-app.use("/api/users", userRouter);
-app.use("/api/projects", authMiddleware, projectRouter);
-app.use("/api/issues", authMiddleware, issueRouter);
-app.use("/api/issue-tracker", authMiddleware, issueTrackerRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/users", userRouter);
+app.use("/api/projects", projectRouter);
+app.use("/api/issues", issueRouter);
+app.use("/api/issue-tracker", issueTrackerRouter);
+
+// error handling middleware
+app.use(MessageMiddleware);
 
 const start = async () => {
     try {
