@@ -1,95 +1,175 @@
 const session = require("express-session");
-// const UserModel = require("../models/user-model");
-// const md5 = require('md5');
+const jwt = require("jsonwebtoken");
+const md5 = require("md5");
+const UserModel = require("../models/user-model");
 
-// const login = (req, res) => {
-//     try {
-//         console.log(req.body);
-//         const email = req.body.email;
-//         const password = req.body.password;
-//         const hashPass = md5(password);
+const validateUser = (data) => {
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+    const usernameRegex = /^[a-zA-Z][a-zA-Z0-9]+$/;
+    const passwordRegex = /^[a-zA-Z0-9@#$%^&*]{6,16}$/;
+    const errMessage = {};
+    if (data.username.length < 3 || data.password.length < 3 || data.email.length < 3) {
+        errMessage = "Username, password and email must be at least 3 characters long";
+    } else if (data.username.length > 40 || data.password.length > 40 || data.email.length > 40) {
+        errMessage = "Username, password and email must be less than 40 characters long";
+    } else if (data.email.match(emailRegex) == null) {
+        errMessage = "Please provide a valid email";
+    } else if (data.username.match(usernameRegex) == null) {
+        errMessage = "Username can only contain letters and numbers";
+    } else if (data.password.match(passwordRegex) == null) {
+        errMessage = "Password can only contain letters, numbers and special characters (@, #, $, %, ^, &, *) and must be between 6 and 16 characters long";
+    }
+    return errMessage;
+};
 
-//         UserModel.findOne({ email: email, password: hashPass }).then((user) => {
-//             if (user) {
-//                 res.status(200).json({
-//                     "message": "User found",
-//                     "user": user
-//                 });
-//             } else {
-//                 res.status(404).json({
-//                     "message": "User not found"
-//                 });
-//             }
-//         }).catch((error) => {
-//             res.status(500).json({
-//                 "message": "Error Message",
-//                 error: error
-//             });
-//         });
-//     } catch (error) {
-//         res.status(500).json({
-//             "message": "Error Message",
-//             error: error
-//         });
-//     }
-// }
 
-const logout = (req, res) => {
+const createUser = async (req, res, next) => {
+    try {
+        console.log(req.body);
+
+        // first check if the username or email already exists in the database
+        const user = await UserModel.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] });
+        if (user) {
+            console.log("Username or email already exists");
+            next({
+                statusCode: 400,
+                status: false,
+                message: "Username or email already exists",
+            });
+        }
+
+        console.log("User does not exist");
+
+        // validate the request body first
+        const errMessage = validateUser(req.body);
+        if (Object.keys(errMessage).length > 0) {
+            next({
+                statusCode: 400,
+                status: false,
+                message: "Validation Error",
+                extraDetails: errMessage,
+            });
+        } else {
+            // hash the password before saving to the database
+            const hashPass = await md5(req.body.password);
+
+            const newUser = {
+                username: req.body.username,
+                password: hashPass,
+                email: req.body.email,
+                role: req.body.role,
+                status: req.body.status,
+                createdAt: req.body.createdAt,
+                updatedAt: req.body.updatedAt,
+            }
+            const user = new UserModel(newUser);
+            await user.save();
+            next({
+                statusCode: 201,
+                status: true,
+                message: "User created successfully",
+                data: {
+                    userId: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    isLoggedIn: true,
+                }
+            });
+        }
+
+    } catch (error) {
+        next({
+            statusCode: 500,
+            status: false,
+            message: "Internal Server Error",
+            extraDetails: error,
+        });
+    }
+};
+
+
+const loginUser = async (req, res, next) => {
+    try {
+        // get the user name from the request
+        const email = req.body.email;
+        var password = req.body.password;
+        password = md5(password); 
+        // get the user from the database
+        const user = await UserModel.findOne({ email: email });
+        if (!user) {
+            next({
+                statusCode: 401,
+                status: false,
+                message: "User not found",
+            });
+        }
+        if (user.password !== password) {
+            next({
+                statusCode: 401,
+                status: false,
+                message: "Invalid password",
+                extraDetails: "The password you entered is incorrect",
+            });
+        }
+
+        next({
+            statusCode: 200,
+            status: true,
+            message: "Login successful",
+            data: {
+                userId: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                lastSeen: user.updatedAt,
+                isLoggedIn: true,
+            },
+            extraDetails: {
+                token: await user.generateAuthToken(),
+            },
+        });
+
+    } catch (error) {
+        next({
+            statusCode: 500,
+            status: false,
+            message: "Internal Server Error",
+            extraDetails: error,
+        });
+    }
+}
+
+
+const logout = (req, res, next) => {
     try {
         session.isLoggedIn = false;
         session.userId = "";
         session.username = "";
         session.email = "";
 
-        res.status(200).json({
-            "message": "You are now logged out"
+        next({
+            statusCode: 200,
+            status: true,
+            message: "Logout successful",
         });
     } catch (error) {
-        res.status(500).json({
-            "message": "Error Message "+ error + " logout-controller"
+        next({
+            statusCode: 500,
+            status: false,
+            message: "Internal Server Error",
+            extraDetails: error,
         });
     }
 }
 
 const maintainLogin = (req, res) => {
-    try {
-        // var isLoggedIn = session.isLoggedIn;
-        // if (!isLoggedIn) {
-        //     return res.status(401).json({ 
-        //         message: "Unauthorized",
-        //     });
-        // } else {
-        //     return res.status(200).json({ 
-        //         message: "Authorized",
-        //         username: session.username,
-        //         isLoggedIn: session.isLoggedIn,
-        //         userId: session.userId,
-        //         email: session.email, 
-        //     });
-        // }
-        if(req.session.isLoggedIn){
-            console.log(req.session);
-            return res.status(200).json({ 
-                message: "Authorized",
-                username: req.session.username,
-                isLoggedIn: req.session.isLoggedIn,
-                userId: req.session.userId,
-                email: req.session.email, 
-            });
-        } else {
-            return res.status(401).json({ 
-                message: "Unauthorized",
-            });
-        }
-    } catch (error) {
-        res.status(500).json({
-            "message": "Error Message "+ error
-        });
-    }
+    
 }
 
 module.exports = {
-    // login,
+    createUser,
+    loginUser,
     logout,
     maintainLogin,
 }

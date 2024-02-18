@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const { isEmail } = require('validator');
 const jwt = require('jsonwebtoken');
-const md5 = require('md5');
 
 
 // - id            INT(11)       PRIMARY KEY       AUTO_INCREMENT
@@ -26,7 +25,7 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please provide a password'],
         minlength: 3,
-        maxlength: 20,
+        maxlength: 40,
     },
     email: {
         type: String,
@@ -47,23 +46,15 @@ const userSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-// hash the password before saving to the database
-userSchema.pre('save', async function (next) {
-    // method-1
-    // const salt = await bcrypt.genSalt(10);
-    // this.password = await bcrypt.hash(this.password, salt);
-    // next();
-
-    // method-2
-    const hashPass = await md5(this.password);
-    this.password = hashPass;
-    next();
-});
-
 // generate a JWT token
 userSchema.methods.generateAuthToken = async function () {
     try {
-        const token = jwt.sign({ _id: this._id }, process.env.JWTSECRET);
+        const token = jwt.sign({ 
+            _id: this._id,
+            username: this.username,
+            email: this.email,
+            role: this.role,
+         }, process.env.JWT_SECRET);
         return token;
     } catch (error) {
         console.log(error);
