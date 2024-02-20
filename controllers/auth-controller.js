@@ -112,13 +112,14 @@ const loginUser = async (req, res, next) => {
                 extraDetails: "The password you entered is incorrect",
             });
         }
-
+        const userId = user._id.toString();
+        console.log(userId);
         next({
             statusCode: 200,
             status: true,
             message: "Login successful",
             data: {
-                userId: user._id,
+                userId: userId,
                 username: user.username,
                 email: user.email,
                 role: user.role,

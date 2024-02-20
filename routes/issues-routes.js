@@ -6,15 +6,15 @@ const Issue = require('../controllers/issues-controller');
 router.get('/', Issue.getAllIssues);
 
 // GET a single issue
-router.get('/:issuename', Issue.getIssue);
+router.get('/:issueId', Issue.getIssue);
 
 // POST a new issue
 router.post('/', Issue.createIssue);
 
 // PUT update a issue
-router.put('/:issuename', Issue.updateIssue);
+router.put('/:issueId', Issue.updateIssue);
 
 // DELETE a issue
-router.delete('/:issuename', Issue.deleteIssue);
+router.delete('/:issueId', Issue.deleteIssue);
 
 module.exports = router;

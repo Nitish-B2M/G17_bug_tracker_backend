@@ -33,31 +33,55 @@ const getAllIssues = async (req, res, next) => {
 
 // GET a single issue
 const getIssue = async (req, res, next) => {
+    console.log(req.params.issueId);
     try {
-        const title = req.params.title;
+        const issueId = req.params.issueId;
+        
+        const issue = await Issue.findById(issueId).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'project_id',
+            select: 'projectname title'
+        });
+        // also populate last updated by if not null
+        const lastUpdatedBy = issue.last_updated_by;
+        if (lastUpdatedBy) {
+            console.log(lastUpdatedBy, "from issue-controller.js 50");
+            const issueWithLastUpdatedBy = await Issue.findById(issueId).populate({
+                path: 'created_by',
+                select: 'username email'
+            }).populate({
+                path: 'project_id',
+                select: 'projectname title'
+            }).populate({
+                path: 'last_updated_by',
+                select: 'username email'
+            });
 
-        Issue.findOne({ title: title }).then((issue) => {
-            if (!issue) {
-                next({
-                    statusCode: 404,
-                    status: false,
-                    message: "Issue not found",
-                });
-            }
             next({
                 statusCode: 200,
                 status: true,
                 message: "Issue",
-                data: issue,
+                data: issueWithLastUpdatedBy,
             });
-        }).catch((error) => {
+        }
+        
+        if (!issue) {
             next({
-                statusCode: 500,
+                statusCode: 404,
                 status: false,
-                message: "Internal Server Error",
-                extraDetails: error,
+                message: "Issue not found",
             });
+        }
+        console.log(issue);
+        next({
+            statusCode: 200,
+            status: true,
+            message: "Issue",
+            data: issue,
         });
+        
     } catch (error) {
         next({
             statusCode: 500,
@@ -144,8 +168,8 @@ const createIssue = async (req, res, next) => {
 // PUT update an issue
 const updateIssue = async (req, res, next) => {
     try {
-        const title = req.params.title;
-        const issue = await Issue.findOne({ title: title });
+        const issueId = req.params.issueId;
+        const issue = await Issue.findOne({ _id: issueId });
         if (!issue) {
             next({
                 statusCode: 404,
@@ -153,17 +177,41 @@ const updateIssue = async (req, res, next) => {
                 message: "Issue not found",
             });
         }
-        issue.title = req.body.title;
-        issue.description = req.body.description;
-        issue.project_id = req.body.project_id;
-        issue.created_by = req.body.created_by;
-        issue.status = req.body.status;
-        issue.priority = req.body.priority;
-        issue.visibility = req.body.visibility;
-        issue.feature = req.body.feature;
-        issue.due_date = req.body.due_date;
-        issue.last_updated_by = req.body.last_updated_by;
+        if (req.body.title) { issue.title = req.body.title; }
+        if (req.body.description) { issue.description = req.body.description; }
+        if (req.body.project_id) { issue.project_id = req.body.project_id; }
+        if (req.body.created_by) { issue.created_by = req.body.created_by; }
+        if (req.body.status) { 
+            var status = req.body.status;
+            var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
+            var typeCastStatus = typeCast(status, enumStatus);
+            issue.status = typeCastStatus;
+        } 
+        if (req.body.priority) { 
+            var priority = req.body.priority;
+            var enumPriority = ['blocker', 'critical', 'major', 'minor'];
+            var typeCastPriority = typeCast(priority, enumPriority);            
+            issue.priority = typeCastPriority;
+        }
+        if (req.body.visibility) { issue.visibility = req.body.visibility; }
+        if (req.body.feature) { issue.feature = req.body.feature; }
+        if (req.body.due_date) { issue.due_date = req.body.due_date; }
+        
+        if (req.body.last_updated_by) { 
+            const user = await UserModel.findOne({ _id: req.body.last_updated_by });
+            if (!user) {
+                next({
+                    statusCode: 404,
+                    status: false,
+                    message: "User not found",
+                });
+            }
+            issue.last_updated_by = req.body.last_updated_by; 
+        }
         await issue.save();
+        
+        
+        console.log(issue, "from updateIssue /path:issue-controller.js 220");
         next({
             statusCode: 200,
             status: true,
@@ -232,9 +280,9 @@ const getIssueTracker = async (req, res, next) => {
 };
 
 // get issue tracker by id -- to-do: working left
-const getIssueTrackerByName = async (req, res, next) => {
+const getIssueTrackerId = async (req, res, next) => {
     try {
-        const issue_id = req.params.issue_id;
+        const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ issue_id: issue_id }).populate({
             path: 'issue_id',
             select: 'title description'
@@ -297,9 +345,9 @@ const createIssueTracker = async (req, res, next) => {
 }
 
 // update issue tracker to-do: working left
-const updateIssueTrackerByName = async (req, res, next) => {
+const updateIssueTrackerId = async (req, res, next) => {
     try {
-        const issue_id = req.params.issue_id;
+        const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ issue_id: issue_id });
         if (!issueTracker) {
             return res.status(404).json({ message: "Issue tracker not found" });
@@ -337,7 +385,7 @@ const updateIssueTrackerByName = async (req, res, next) => {
 // delete issue tracker to-do: working left
 const deleteIssueTracker = async (req, res, next) => {
     try {
-        const issue_id = req.params.issue_id;
+        const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ issue_id: issue_id });
         if (!issueTracker) {
             next({
@@ -370,8 +418,8 @@ module.exports = {
     updateIssue,
     deleteIssue,
     getIssueTracker,
-    getIssueTrackerByName,
+    getIssueTrackerId,
     createIssueTracker,
-    updateIssueTrackerByName,
+    updateIssueTrackerId,
     deleteIssueTracker
 };
