@@ -11,10 +11,9 @@ const mongoose = require('mongoose');
 // - updated_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
 const fileSchema = new mongoose.Schema({
-    name: {
+    filename: {
         type: String,
         required: [true, 'Please provide a name'],
-        unique: true,
         minlength: 3,
         maxlength: 50,
     },
@@ -26,7 +25,7 @@ const fileSchema = new mongoose.Schema({
     },
     collection_Type: {
         type: String,
-        enum: ['project', 'issue', 'comment'],
+        enum: ['project', 'issue', 'comment', 'issue_tracker'],
         default: 'project',
     },
     collection_id: {

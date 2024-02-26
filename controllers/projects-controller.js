@@ -24,7 +24,7 @@ const getAllProject = async (req, res, next) => {
             path: 'created_by',
             select: 'username email'
         });
-        console.log(JSON.stringify(project, null, 4));
+        console.log(JSON.stringify(project, null, 4), "from getAllProject");
         next({
             statusCode: 200,
             status: true,

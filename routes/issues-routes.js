@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const fileUpload = require('../middleware/fileUploadMiddleware_Issue');
 const Issue = require('../controllers/issues-controller');
 
 // GET all issues
@@ -9,7 +10,7 @@ router.get('/', Issue.getAllIssues);
 router.get('/:issueId', Issue.getIssue);
 
 // POST a new issue
-router.post('/', Issue.createIssue);
+router.post('/').post(fileUpload.array('file', 5), Issue.createIssue);
 
 // PUT update a issue
 router.put('/:issueId', Issue.updateIssue);

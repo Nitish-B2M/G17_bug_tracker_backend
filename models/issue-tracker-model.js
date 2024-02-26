@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 // - id            INT(11)       PRIMARY KEY       AUTO_INCREMENT
 // - issue_id      INT(11)       FOREIGN KEY       REFERENCES issue(id)
 // - assigned_to   INT(11)       FOREIGN KEY       REFERENCES user(id)
+// - assigned_by   INT(11)       FOREIGN KEY       REFERENCES user(id)
 // - comment       VARCHAR(255)
 // - file_id       INT(11)       FOREIGN KEY       REFERENCES file(id)
 // - status        ENUM          DEFAULT 'pending' ['pending', 'in progress', 'resolved' , 'on hold']
@@ -19,7 +20,12 @@ const issueTrackerSchema = new mongoose.Schema({
     assigned_to: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, 'Please provide a user'],
+        required: [true, 'Please provide a user who is assigned to this issue'],
+    },
+    assigned_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: [true, 'Please provide a user who assigned this issue'],
     },
     comment: {
         type: String,
@@ -27,15 +33,10 @@ const issueTrackerSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 255,
     },
-    file_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'File',
-        default: null,
-    },
     status: {
         type: String,
-        enum: ['pending', 'in progress', 'resolved', 'on hold'],
-        default: 'pending',
+        enum: ['open', 'in-progress', 'resolved', 'on-hold'],
+        default: 'open',
     },
 }, { timestamps: true });
 

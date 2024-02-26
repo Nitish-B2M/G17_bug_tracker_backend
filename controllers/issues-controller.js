@@ -3,6 +3,7 @@ const File = require('../models/file-model');
 const Project = require('../models/project-model');
 const Issue = require('../models/issue-model');
 const IssueTracker = require('../models/issue-tracker-model');
+const ObjectId = require('mongoose').Types.ObjectId;
 
 // GET all issues
 const getAllIssues = async (req, res, next) => {
@@ -33,7 +34,6 @@ const getAllIssues = async (req, res, next) => {
 
 // GET a single issue
 const getIssue = async (req, res, next) => {
-    console.log(req.params.issueId);
     try {
         const issueId = req.params.issueId;
         
@@ -47,7 +47,6 @@ const getIssue = async (req, res, next) => {
         // also populate last updated by if not null
         const lastUpdatedBy = issue.last_updated_by;
         if (lastUpdatedBy) {
-            console.log(lastUpdatedBy, "from issue-controller.js 50");
             const issueWithLastUpdatedBy = await Issue.findById(issueId).populate({
                 path: 'created_by',
                 select: 'username email'
@@ -74,7 +73,6 @@ const getIssue = async (req, res, next) => {
                 message: "Issue not found",
             });
         }
-        console.log(issue);
         next({
             statusCode: 200,
             status: true,
@@ -143,7 +141,6 @@ const createIssue = async (req, res, next) => {
                 due_date: req.body.due_date,
                 last_updated_by: req.body.last_updated_by
             }
-            console.log(req.body);
             const newIssue = await Issue.create(issue);
             
             next({
@@ -261,8 +258,6 @@ const deleteIssue = async (req, res, next) => {
 const getIssueTracker = async (req, res, next) => {
     try {
         const issueTracker = await IssueTracker.find({});
-        console.log(issueTracker);
-        console.log(issueTracker);
         next({
             statusCode: 200,
             status: true,
@@ -319,20 +314,71 @@ const getIssueTrackerId = async (req, res, next) => {
 // create issue tracker
 const createIssueTracker = async (req, res, next) => {
     try {
+        // type cast status to enum
+        var status = req.body.assignStatus;
+        var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
+        var typeCastStatus = typeCast(status, enumStatus);
+
         const issueTracker = {
-                issue_id: req.body.issue_id,
-                assigned_to: req.body.assigned_to,
-                comment: req.body.comment,
-                status: req.body.status
+            issue_id: req.body.assignIssueId,
+            assigned_by: req.body.assignedBy,
+            assigned_to: req.body.assignTo,
+            comment: req.body.assignDescription,
+            status: typeCastStatus
+        }
+
+        console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340");
+
+        if (issueTracker.issue_id === null || issueTracker.issue_id === undefined || issueTracker.issue_id === "" || issueTracker.issue_id === "undefined") {
+            next({
+                statusCode: 400,
+                status: false,
+                message: "Issue ID is undefined",
+            });
+        }
+
+        const newIssueTracker = await IssueTracker.create(issueTracker); 
+        await newIssueTracker.save();
+        if (!newIssueTracker) {
+            next({
+                statusCode: 404,
+                status: false,
+                message: "Issue for user not found",
+            });
+        }
+        
+        const file = req.files;
+        if (file) {
+            issueTracker.files = [];
+            for (let i = 0; i < file.length; i++) {
+                const newFile = await File.create({
+                    filename: file[i].filename,
+                    path: file[i].path,
+                    collection_Type: 'issue_tracker',
+                    collection_id: newIssueTracker._id,
+                    created_by: req.body.assignedBy
+                });
+                var tempFileObject = {[file[i].filename]: file[i].path}
+                issueTracker.files.push(tempFileObject);
+                await newFile.save();
             }
-        console.log(issueTracker);
-        const newIssueTracker = await IssueTracker.create(issueTracker);
-        next({
-            statusCode: 201,
-            status: true,
-            message: "Issue tracker created",
-            data: newIssueTracker,
-        });
+            console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340 363");
+            await next({
+                statusCode: 201,
+                status: true,
+                message: "Issue assigned to user with attached files",
+                data: issueTracker,
+            });
+            
+        } else{
+            console.log(newIssueTracker, "from createIssueTracker /path:issue-controller.js 340 372");
+            next({
+                statusCode: 201,
+                status: true,
+                message: "Issue assigned to user",
+                data: newIssueTracker,
+            });
+        }
     }
     catch (error) {
         next({

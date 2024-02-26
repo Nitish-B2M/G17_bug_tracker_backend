@@ -25,8 +25,6 @@ const validateUser = (data) => {
 
 const createUser = async (req, res, next) => {
     try {
-        console.log(req.body);
-
         // first check if the username or email already exists in the database
         const user = await UserModel.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] });
         if (user) {
@@ -37,8 +35,6 @@ const createUser = async (req, res, next) => {
                 message: "Username or email already exists",
             });
         }
-
-        console.log("User does not exist");
 
         // validate the request body first
         const errMessage = validateUser(req.body);
@@ -113,7 +109,7 @@ const loginUser = async (req, res, next) => {
             });
         }
         const userId = user._id.toString();
-        console.log(userId);
+        console.log(userId, "from auth controller [loginUser]");
         next({
             statusCode: 200,
             status: true,

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Issue = require('../controllers/issues-controller');
+const fileUpload = require('../middleware/fileUploadMiddleware_IssueTracker');
 
 // issue tracker
 router.get('/', Issue.getIssueTracker);
@@ -9,7 +10,9 @@ router.get('/', Issue.getIssueTracker);
 router.get('/:issuetrackerid', Issue.getIssueTrackerId);
 
 // create issue tracker
-router.post('/', Issue.createIssueTracker);
+// router.post('/', fileUpload.array('file', 5), Issue.createIssueTracker);
+// to upload file only this is working
+router.route('/').post(fileUpload.array('assignFile', 5), Issue.createIssueTracker);
 
 // update issue tracker
 router.put('/:issuetrackerid', Issue.updateIssueTrackerId);
