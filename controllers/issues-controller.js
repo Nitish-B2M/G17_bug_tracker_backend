@@ -36,7 +36,16 @@ const getAllIssues = async (req, res, next) => {
 const getIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        
+        const checkFirstIssue = await Issue.findOne({ _id: issueId });
+
+        if (!checkFirstIssue) {
+            next({
+                statusCode: 404,
+                status: false,
+                message: "Issue not found",
+            });
+        }
+
         const issue = await Issue.findById(issueId).populate({
             path: 'created_by',
             select: 'username email'
@@ -85,6 +94,7 @@ const getIssue = async (req, res, next) => {
             statusCode: 500,
             status: false,
             message: "Internal Server Error",
+
             extraDetails: error,
         });
     }
@@ -142,6 +152,45 @@ const createIssue = async (req, res, next) => {
                 last_updated_by: req.body.last_updated_by
             }
             const newIssue = await Issue.create(issue);
+            await newIssue.save();
+            if (!newIssue) {
+                next({
+                    statusCode: 404,
+                    status: false,
+                    message: "Issue not created",
+                });
+            }
+            const file = req.files;
+            if (file) {
+                issue.files = [];
+                for (let i = 0; i < file.length; i++) {
+                    const newFile = await File.create({
+                        filename: file[i].filename,
+                        path: file[i].path,
+                        collection_Type: 'issue',
+                        collection_id: newIssue._id,
+                        created_by: req.body.created_by
+                    });
+                    var tempFileObject = {[file[i].filename]: file[i].path}
+                    issue.files.push(tempFileObject);
+                    await newFile.save();
+                }
+                console.log(issue, "from createIssue /path:issue-controller.js 180");
+                await next({
+                    statusCode: 201,
+                    status: true,
+                    message: "Issue created with attached files",
+                    data: issue,
+                });
+            } else{
+                console.log(newIssue, "from createIssue /path:issue-controller.js 180");
+                next({
+                    statusCode: 201,
+                    status: true,
+                    message: "Issue created",
+                    data: newIssue,
+                });
+            }
             
             next({
                 statusCode: 201,
@@ -167,6 +216,7 @@ const updateIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
         const issue = await Issue.findOne({ _id: issueId });
+
         if (!issue) {
             next({
                 statusCode: 404,
@@ -203,17 +253,27 @@ const updateIssue = async (req, res, next) => {
                     message: "User not found",
                 });
             }
-            issue.last_updated_by = req.body.last_updated_by; 
+            issue.last_updated_by = req.body.last_updated_by;
         }
         await issue.save();
+        const issueWithLastUpdatedBy = await Issue.findById(issueId).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'project_id',
+            select: 'projectname title'
+        }).populate({
+            path: 'last_updated_by',
+            select: 'username email'
+        });
+
         
-        
-        console.log(issue, "from updateIssue /path:issue-controller.js 220");
+        console.log(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js 220");
         next({
             statusCode: 200,
             status: true,
             message: "Issue updated",
-            data: issue,
+            data: issueWithLastUpdatedBy,
         });
     } catch (error) {
         next({
@@ -228,8 +288,9 @@ const updateIssue = async (req, res, next) => {
 // DELETE an issue
 const deleteIssue = async (req, res, next) => {
     try {
-        const title = req.params.title;
-        const issue = await Issue.findOne({ title: title });
+        const issueId = req.params.issueId;
+        const issue = await Issue.findOne({ _id: issueId });
+        console.log(issue, "from issue-controller.js deleteIssue 244 ");
         if (!issue) {
             next({
                 statusCode: 404,
@@ -237,7 +298,7 @@ const deleteIssue = async (req, res, next) => {
                 message: "Issue not found",
             });
         }
-        await issue.remove();
+        await Issue.deleteOne({_id: issueId});
         next({
             statusCode: 200,
             status: true,
@@ -278,15 +339,12 @@ const getIssueTracker = async (req, res, next) => {
 const getIssueTrackerId = async (req, res, next) => {
     try {
         const issue_id = req.params.issuetrackerid;
-        const issueTracker = await IssueTracker.findOne({ issue_id: issue_id }).populate({
+        const issueTracker = await IssueTracker.find({ issue_id: issue_id }).populate({
             path: 'issue_id',
             select: 'title description'
         }).populate({
             path: 'assigned_to',
             select: 'username email'
-        }).populate({
-            path: 'file_id',
-            select: 'filename'
         });
         if (!issueTracker) {
             next({
@@ -327,7 +385,7 @@ const createIssueTracker = async (req, res, next) => {
             status: typeCastStatus
         }
 
-        console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340");
+        console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340 388");
 
         if (issueTracker.issue_id === null || issueTracker.issue_id === undefined || issueTracker.issue_id === "" || issueTracker.issue_id === "undefined") {
             next({
@@ -346,10 +404,19 @@ const createIssueTracker = async (req, res, next) => {
                 message: "Issue for user not found",
             });
         }
+        // populate user and issue
+        const responseIssueTracker = await IssueTracker.findById(newIssueTracker._id).populate({
+            path: 'issue_id',
+            select: 'title description'
+        }).populate({
+            path: 'assigned_to',
+            select: 'username email'
+        });
         
         const file = req.files;
-        if (file) {
-            issueTracker.files = [];
+        // if files are attached not null or undefined or file [] is not empty
+        if (file !== null && file !== undefined && file.length > 0) {
+            responseIssueTracker.files = [];
             for (let i = 0; i < file.length; i++) {
                 const newFile = await File.create({
                     filename: file[i].filename,
@@ -359,26 +426,33 @@ const createIssueTracker = async (req, res, next) => {
                     created_by: req.body.assignedBy
                 });
                 var tempFileObject = {[file[i].filename]: file[i].path}
-                issueTracker.files.push(tempFileObject);
+                responseIssueTracker.files.push(tempFileObject);
                 await newFile.save();
             }
-            console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340 363");
+            console.log(responseIssueTracker, "from createIssueTracker /path:issue-controller.js 340 363 423");
             await next({
                 statusCode: 201,
                 status: true,
                 message: "Issue assigned to user with attached files",
-                data: issueTracker,
+                data: responseIssueTracker,
             });
             
         } else{
-            console.log(newIssueTracker, "from createIssueTracker /path:issue-controller.js 340 372");
+            console.log(responseIssueTracker, "from createIssueTracker /path:issue-controller.js 340 372");
             next({
                 statusCode: 201,
                 status: true,
                 message: "Issue assigned to user",
-                data: newIssueTracker,
+                data: responseIssueTracker,
             });
         }
+
+        next({
+            statusCode: 201,
+            status: true,
+            message: "Issue assigned to user",
+            data: newIssueTracker,
+        });
     }
     catch (error) {
         next({
@@ -432,7 +506,8 @@ const updateIssueTrackerId = async (req, res, next) => {
 const deleteIssueTracker = async (req, res, next) => {
     try {
         const issue_id = req.params.issuetrackerid;
-        const issueTracker = await IssueTracker.findOne({ issue_id: issue_id });
+        const issueTracker = await IssueTracker.findOne({ _id: issue_id });
+        console.log(issueTracker, "from issue-controller.js deleteIssueTracker 510 ");
         if (!issueTracker) {
             next({
                 statusCode: 404,
@@ -440,7 +515,14 @@ const deleteIssueTracker = async (req, res, next) => {
                 message: "Issue tracker not found",
             });
         }
-        await issueTracker.remove();
+        await IssueTracker.deleteOne({_id: issue_id});
+        if (!issueTracker) {
+            next({
+                statusCode: 404,
+                status: false,
+                message: "Issue tracker not found",
+            });
+        }
         next({
             statusCode: 200,
             status: true,

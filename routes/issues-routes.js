@@ -10,7 +10,8 @@ router.get('/', Issue.getAllIssues);
 router.get('/:issueId', Issue.getIssue);
 
 // POST a new issue
-router.post('/').post(fileUpload.array('file', 5), Issue.createIssue);
+// router.post('/', fileUpload.array('file', 5), Issue.createIssue);
+router.route('/').post(fileUpload.array('file', 5), Issue.createIssue);
 
 // PUT update a issue
 router.put('/:issueId', Issue.updateIssue);
