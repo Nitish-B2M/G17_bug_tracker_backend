@@ -13,13 +13,13 @@ const { default: mongoose } = require('mongoose');
 // - department    ENUM          DEFAULT 'general' ['general', 'UI', 'backend', 'database', 'testing', 'security']
 
 const projectSchema = new mongoose.Schema({
-    projectname: {
-        type: String,
-        required: [true, 'Please provide a projectname'],
-        unique: true,
-        minlength: 3,
-        maxlength: 50,
-    },
+    // projectname: {
+    //     type: String,
+    //     required: [true, 'Please provide a projectname'],
+    //     unique: true,
+    //     minlength: 3,
+    //     maxlength: 50,
+    // },
     title: {
         type: String,
         required: [true, 'Please provide a title'],
@@ -47,10 +47,10 @@ const projectSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Please provide a user'],
     },
-    status: {
+    visibility: {
         type: String,
-        enum: ['active', 'inactive'],
-        default: 'active',
+        enum: ['public', 'private'],
+        default: 'public',
     },
     department: {
         type: String,

@@ -37,11 +37,12 @@ const getAllProject = async (req, res, next) => {
 };
 
 // GET a single project
-const getProject = async (req, res) => {
+const getProject = async (req, res, next) => {
     try {
-        const name = req.params.projectname;
+        const projectId = req.params.projectId;
         
-        ProjectModel.findOne({ name: name }).then((project) => {
+        ProjectModel.findOne({ _id: projectId })
+                .then((project) => {
             if (!project) {
                 commonItemNotFound("Project not found", next);
             }
@@ -62,8 +63,8 @@ const getProject = async (req, res) => {
 // POST a new project
 const createProject = async (req, res, next) => {
     try {
-        console.log(req.body);
-        const project = await ProjectModel.findOne({ projectname: req.body.projectname });
+        console.log(req.body, "from createProject");
+        const project = await ProjectModel.findOne({ title: req.body.title });
         if (project) {
             console.log("Project already exists");
             next({
@@ -73,16 +74,12 @@ const createProject = async (req, res, next) => {
             });
         } else {
             const project = {
-                projectname: req.body.projectname,
                 title: req.body.title,
                 description: req.body.description,
-                file_id: req.body.file_id,
                 created_by: req.body.created_by,
                 lead: req.body.lead,
                 status: req.body.status,
                 department: req.body.department,
-                createdAt: req.body.createdAt,
-                updatedAt: req.body.updatedAt,
             }
             const newProject = new ProjectModel(project);
             await newProject.save();
@@ -90,16 +87,7 @@ const createProject = async (req, res, next) => {
                 statusCode: 201,
                 status: true,
                 message: "Project created successfully",
-                data: {
-                    projectId: newProject._id,
-                    projectname: newProject.projectname,
-                    title: newProject.title,
-                    description: newProject.description,
-                    created_by: newProject.created_by,
-                    lead: newProject.lead,
-                    status: newProject.status,
-                    department: newProject.department,
-                }
+                data: newProject,
             });
         }   
     } catch (error) {
@@ -114,12 +102,11 @@ const createProject = async (req, res, next) => {
 // PUT update a project
 const updateProject = async (req, res, next) => {
     try {
-        const projectname = req.params.projectname;
-        const project = await ProjectModel.findOne({ projectname: projectname });
+        const projectId = req.params.projectId;
+        const project = await ProjectModel.findOne({ _id: projectId });
         if (!project) {
             commonItemNotFound("Project not found", next);
         }
-        project.projectname = req.body.projectname;
         project.title = req.body.title;
         project.description = req.body.description;
         project.file_id = req.body.file_id;
@@ -134,7 +121,6 @@ const updateProject = async (req, res, next) => {
             message: "Project updated successfully",
             data: {
                 projectId: project._id,
-                projectname: project.projectname,
                 title: project.title,
                 description: project.description,
                 created_by: project.created_by,
@@ -151,8 +137,8 @@ const updateProject = async (req, res, next) => {
 // DELETE a project
 const deleteProject = async (req, res, next) => {
     try {
-        const projectname = req.params.projectname;
-        const projectDelete = await ProjectModel.findOneAndDelete({ projectname: projectname });
+        const projectId = req.params.projectId;
+        const projectDelete = await ProjectModel.findOneAndDelete({ _id: projectId });
         if (!projectDelete) {
             commonItemNotFound("Project not found", next);
         }

@@ -6,16 +6,16 @@ const Project = require('../controllers/projects-controller');
 router.get('/', Project.getAllProject);
 
 // GET a single project
-router.get('/:projectname', Project.getProject);
+router.get('/:projectId', Project.getProject);
 
 // POST a new project
 router.post('/', Project.createProject);
 
 // PUT update a project
-router.put('/:projectname', Project.updateProject);
+router.put('/:projectId', Project.updateProject);
 
 // DELETE a project
-router.delete('/:projectname', Project.deleteProject);
+router.delete('/:projectId', Project.deleteProject);
 
 // GET all projects for a user
 router.get('/user/:userId', Project.getProjectsForUser);

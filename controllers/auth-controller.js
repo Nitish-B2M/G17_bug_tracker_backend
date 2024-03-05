@@ -5,7 +5,7 @@ const UserModel = require("../models/user-model");
 
 const validateUser = (data) => {
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
-    const usernameRegex = /^[a-zA-Z][a-zA-Z0-9]+$/;
+    const usernameRegex = /^[a-zA-Z][a-zA-Z0-9\-]+$/;
     const passwordRegex = /^[a-zA-Z0-9@#$%^&*]{6,16}$/;
     const errMessage = {};
     if (data.username.length < 3 || data.password.length < 3 || data.email.length < 3) {

@@ -385,8 +385,6 @@ const createIssueTracker = async (req, res, next) => {
             status: typeCastStatus
         }
 
-        console.log(issueTracker, "from createIssueTracker /path:issue-controller.js 340 388");
-
         if (issueTracker.issue_id === null || issueTracker.issue_id === undefined || issueTracker.issue_id === "" || issueTracker.issue_id === "undefined") {
             next({
                 statusCode: 400,
@@ -523,11 +521,13 @@ const deleteIssueTracker = async (req, res, next) => {
                 message: "Issue tracker not found",
             });
         }
+        // return all issue trackers after deleting
+        const issueTrackers2 = await IssueTracker.find({});
         next({
             statusCode: 200,
             status: true,
             message: "Issue tracker deleted",
-            data: issueTracker,
+            data: issueTrackers2,
         });
     } catch (error) {
         next({
