@@ -17,4 +17,7 @@ router.delete('/:userId', User.deleteUser);
 // PUT update last seen
 router.put('/lastseen/:userId', User.updateLastSeen);
 
+// GET user [role: developer]
+router.get('/role/:role', User.getUsersByRole);
+
 module.exports = router;

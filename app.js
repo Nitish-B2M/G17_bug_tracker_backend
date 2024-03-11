@@ -40,6 +40,7 @@ const projectRouter = require("./routes/projects-routes");
 const issueRouter = require("./routes/issues-routes");
 const issueTrackerRouter = require("./routes/issues-tracker-routes");
 const authRouter = require("./routes/auth-routes");
+const commonConsole = require("./common/commonConsole");
 
 
 // use the middleware for all the routes
@@ -56,10 +57,14 @@ const start = async () => {
     try {
         await connectDB();
         app.listen(port, () => {
+            console.log(`\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*`);
             console.log(`Server is listening on port ${port}`);
+            console.log(`*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n`);
         });
     } catch (error) {
-        console.log(error);
+        console.log(`\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*`);
+        console.log(error, "Error connecting to the database");
+        console.log(`*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n`);
     }
 };
 

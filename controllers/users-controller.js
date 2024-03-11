@@ -1,28 +1,16 @@
 const UserModel = require('../models/user-model');
-
-const commonCatchBlock = (error, next) => {
-    next({
-        statusCode: 500,
-        status: false,
-        message: "Internal Server Error",
-        extraDetails: error,
-    });
-};
+const { commonCatchBlock, commonSuccess, commonItemNotFound, commonItemCreated } = require('../common/commonStatusCode');
+const commonConsole = require('../common/commonConsole');
 
 const getAllUsers = async (req, res, next) => {
     try {
         // get all users from the database
         const users = await UserModel.find({});
-        // print out the users in readable format
-        console.log(JSON.stringify(users, null, 4));
-        next({
-            statusCode: 200,
-            status: true,
-            message: "All users",
-            data: users,
-        });
+        
+        commonConsole(users, "All users :/users-controller.js [getAllUsers] 10");
+        next(commonSuccess("All users", users));
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -33,25 +21,15 @@ const getUser = async (req, res, next) => {
 
         UserModel.findOne({ _id: userId }).then((user) => {
             if (!user) {
-                next({
-                    statusCode: 404,
-                    status: false,
-                    message: "User not found",
-                });
+                next(commonItemNotFound("User not found"));
             }
-            next({
-                statusCode: 200,
-                status: true,
-                message: "User found",
-                data: user,
-            });
+            next(commonSuccess("User found", user));
         }).catch((error) => {
-            commonCatchBlock(error, next);
+            next(commonCatchBlock(error));
         });
 
-        
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -63,49 +41,17 @@ const updateUser = async (req, res, next) => {
         // get the user from the database
         const user = await UserModel.findOne({ _id: userId });
         if (!user) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "User not found",
-            });
+            next(commonItemNotFound("User not found"));
         }
         // first check is username is send in the request
         if (req.body.updatedAt !== undefined) {
             user.updatedAt = req.body.updatedAt;
         }
         await user.save();
-        next({
-            statusCode: 200,
-            status: true,
-            message: "User updated",
-            data: user,
-        });
-
-
-        // const errors = validateUser(req.body);
-        // if (Object.keys(errors).length > 0) {
-        //     next({
-        //         statusCode: 400,
-        //         status: false,
-        //         message: "Validation Error",
-        //         extraDetails: errors,
-        //     });
-        // } else {
-        //     user.password = req.body.password;
-        //     user.role = req.body.role;
-        //     user.status = req.body.status;
-        //     user.updatedAt = req.body.updatedAt;
-        //     await user.save();
-        //     next({
-        //         statusCode: 200,
-        //         status: true,
-        //         message: "User updated",
-        //         data: user,
-        //     });
-        // }
+        next(commonSuccess("User updated", user));
         
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -117,23 +63,14 @@ const updateLastSeen = async (req, res, next) => {
         const user = await UserModel.findOne({ _id: userId });
         console.log(user, "from updateLastSeen");
         if (!user) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "User not found",
-            });
+            next(commonItemNotFound("User not found"));
         }
         user.updatedAt = req.body.lastSeen;
         await user.save();
-        next({
-            statusCode: 200,
-            status: true,
-            message: "User last seen updated",
-            data: user,
-        });
+        next(commonSuccess("User last seen updated", user));
     }
     catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -145,17 +82,25 @@ const deleteUser = async (req, res, next) => {
         // delete the user from the database
         const deletedUser = await UserModel.findOneAndDelete({ _id: userId });
         if (!deletedUser) {
-            return res.status(404).json({ message: "User not found" });
+            next(commonItemNotFound("User not found"));
         }
         
-        next({
-            statusCode: 200,
-            status: true,
-            message: "User deleted",
-            data: deletedUser,
-        });     
+        next(commonSuccess("User deleted", deletedUser));
+
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
+    }
+};
+
+// GET all users by role
+const getUsersByRole = async (req, res, next) => {
+    try {
+        const role = req.params.role;
+        const users = await UserModel.find({ role: role });
+        commonConsole(users, "All users by role :/users-controller.js [getUsersByRole] 100");
+        next(commonSuccess("All users by role", users));
+    } catch (error) {
+        next(commonCatchBlock(error));
     }
 };
 
@@ -166,4 +111,5 @@ module.exports = {
     updateUser,
     deleteUser,
     updateLastSeen,
+    getUsersByRole
 };

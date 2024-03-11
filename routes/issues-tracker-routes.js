@@ -20,4 +20,7 @@ router.put('/:issuetrackerid', Issue.updateIssueTrackerId);
 // delete issue tracker
 router.delete('/:issuetrackerid', Issue.deleteIssueTracker);
 
+// get issue tracker by project
+router.get('/project/:projectId', Issue.getIssueTrackerByProject);
+
 module.exports = router;

@@ -4,6 +4,8 @@ const Project = require('../models/project-model');
 const Issue = require('../models/issue-model');
 const IssueTracker = require('../models/issue-tracker-model');
 const ObjectId = require('mongoose').Types.ObjectId;
+const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
+const commonConsole = require('../common/commonConsole');
 
 // GET all issues
 const getAllIssues = async (req, res, next) => {
@@ -13,22 +15,14 @@ const getAllIssues = async (req, res, next) => {
             select: 'username email'
         }).populate({
             path: 'project_id',
-            select: 'projectname title'
+            select: 'title'
             // sort by last updated
         }).sort({ updatedAt: -1 });
-        next({
-            statusCode: 200,
-            status: true,
-            message: "All issues",
-            data: issues,
-        });
+        
+        commonConsole(issues, "from getAllIssues /path:issue-controller.js [getAllIssues] 26");
+        next(commonSuccess("All issues", issues));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -39,11 +33,7 @@ const getIssue = async (req, res, next) => {
         const checkFirstIssue = await Issue.findOne({ _id: issueId });
 
         if (!checkFirstIssue) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue not found",
-            });
+            next(commonItemNotFound("Issue not found"));
         }
 
         const issue = await Issue.findById(issueId).populate({
@@ -51,7 +41,7 @@ const getIssue = async (req, res, next) => {
             select: 'username email'
         }).populate({
             path: 'project_id',
-            select: 'projectname title'
+            select: 'title'
         });
         // also populate last updated by if not null
         const lastUpdatedBy = issue.last_updated_by;
@@ -61,42 +51,22 @@ const getIssue = async (req, res, next) => {
                 select: 'username email'
             }).populate({
                 path: 'project_id',
-                select: 'projectname title'
+                select: 'title'
             }).populate({
                 path: 'last_updated_by',
                 select: 'username email'
             });
 
-            next({
-                statusCode: 200,
-                status: true,
-                message: "Issue",
-                data: issueWithLastUpdatedBy,
-            });
+            commonConsole(issueWithLastUpdatedBy, "from getIssue /path:issue-controller.js [getIssue] 59");
         }
         
         if (!issue) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue not found",
-            });
+            next(commonItemNotFound("Issue not found"));
         }
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue",
-            data: issue,
-        });
+        next(commonSuccess("Issue found", issue));
         
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -115,12 +85,8 @@ const createIssue = async (req, res, next) => {
     try {
         const issue = await Issue.findOne({ title : req.body.title, project_id: req.body.project_id });
         if (issue) {
-            console.log("Issue for this project already exists");
-            next({
-                statusCode: 400,
-                status: false,
-                message: "Issue for this project already exists",
-            });
+            commonConsole(issue, "from createIssue /path:issue-controller.js [createIssue] 119");
+            next(commonBadRequest("Issue for this project already exists"));
         } else {
             // type cast status to enum
             var status = req.body.status;
@@ -154,11 +120,7 @@ const createIssue = async (req, res, next) => {
             const newIssue = await Issue.create(issue);
             await newIssue.save();
             if (!newIssue) {
-                next({
-                    statusCode: 404,
-                    status: false,
-                    message: "Issue not created",
-                });
+                next(commonItemNotFound("Issue not found"));
             }
             const file = req.files;
             if (file) {
@@ -175,38 +137,16 @@ const createIssue = async (req, res, next) => {
                     issue.files.push(tempFileObject);
                     await newFile.save();
                 }
-                console.log(issue, "from createIssue /path:issue-controller.js 180");
-                await next({
-                    statusCode: 201,
-                    status: true,
-                    message: "Issue created with attached files",
-                    data: issue,
-                });
-            } else{
-                console.log(newIssue, "from createIssue /path:issue-controller.js 180");
-                next({
-                    statusCode: 201,
-                    status: true,
-                    message: "Issue created",
-                    data: newIssue,
-                });
+                commonConsole(newIssue, "from createIssue /path:issue-controller.js [createIssue] 179 143");
+                await next(commonItemCreated("Issue created successfully", newIssue));
             }
-            
-            next({
-                statusCode: 201,
-                status: true,
-                message: "Issue created",
-                data: newIssue,
-            });
+
+            commonConsole(newIssue, "from createIssue /path:issue-controller.js [createIssue] 187 146");
+            await next(commonItemCreated("Issue created successfully", newIssue));
         }
     }
     catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 
 };
@@ -218,11 +158,7 @@ const updateIssue = async (req, res, next) => {
         const issue = await Issue.findOne({ _id: issueId });
 
         if (!issue) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue not found",
-            });
+            next(commonItemNotFound("Issue not found"));
         }
         if (req.body.title) { issue.title = req.body.title; }
         if (req.body.description) { issue.description = req.body.description; }
@@ -247,11 +183,7 @@ const updateIssue = async (req, res, next) => {
         if (req.body.last_updated_by) { 
             const user = await UserModel.findOne({ _id: req.body.last_updated_by });
             if (!user) {
-                next({
-                    statusCode: 404,
-                    status: false,
-                    message: "User not found",
-                });
+                next(commonItemNotFound("User not found"));
             }
             issue.last_updated_by = req.body.last_updated_by;
         }
@@ -261,27 +193,16 @@ const updateIssue = async (req, res, next) => {
             select: 'username email'
         }).populate({
             path: 'project_id',
-            select: 'projectname title'
+            select: 'title'
         }).populate({
             path: 'last_updated_by',
             select: 'username email'
         });
 
-        
-        console.log(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js 220");
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue updated",
-            data: issueWithLastUpdatedBy,
-        });
+        commonConsole(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js [updateIssue] 220 274");
+        next(commonSuccess("Issue updated", issueWithLastUpdatedBy));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -290,28 +211,37 @@ const deleteIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
         const issue = await Issue.findOne({ _id: issueId });
-        console.log(issue, "from issue-controller.js deleteIssue 244 ");
+        commonConsole(issue, "from deleteIssue /path:issue-controller.js [deleteIssue] 292");
         if (!issue) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue not found",
-            });
+            next(commonItemNotFound("Issue not found"));
         }
         await Issue.deleteOne({_id: issueId});
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue deleted",
-            data: issue,
-        });
+        next(commonSuccess("Issue deleted Successfully", issue));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
+    }
+};
+
+// GET all issues by project
+const getIssuesByProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const project = await Project.findOne({ _id: projectId });
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+        const issues = await Issue.find({ project_id: projectId })
+        .populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'project_id',
+            select: 'title'
+        }).sort({ updatedAt: -1 });
+        commonConsole(issues, "from getIssuesByProject /path:issue-controller.js [getIssuesByProject] 318");
+        next(commonSuccess("All issues by project", issues));
+    } catch (error) {
+        next(commonCatchBlock(error));
     }
 };
 
@@ -319,19 +249,9 @@ const deleteIssue = async (req, res, next) => {
 const getIssueTracker = async (req, res, next) => {
     try {
         const issueTracker = await IssueTracker.find({});
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue tracker",
-            data: issueTracker,
-        });
+        next(commonSuccess("All issue trackers", issueTracker));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -347,25 +267,11 @@ const getIssueTrackerId = async (req, res, next) => {
             select: 'username email'
         });
         if (!issueTracker) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue tracker not found",
-            });
+            next(commonItemNotFound("Issue tracker not found"));
         }
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue tracker",
-            data: issueTracker,
-        });
+        next(commonSuccess("Issue tracker found", issueTracker));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -386,21 +292,13 @@ const createIssueTracker = async (req, res, next) => {
         }
 
         if (issueTracker.issue_id === null || issueTracker.issue_id === undefined || issueTracker.issue_id === "" || issueTracker.issue_id === "undefined") {
-            next({
-                statusCode: 400,
-                status: false,
-                message: "Issue ID is undefined",
-            });
+            next(commonItemNotFound("Issue not found"));
         }
 
         const newIssueTracker = await IssueTracker.create(issueTracker); 
         await newIssueTracker.save();
         if (!newIssueTracker) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue for user not found",
-            });
+            next(commonItemNotFound("Issue tracker not found"));
         }
         // populate user and issue
         const responseIssueTracker = await IssueTracker.findById(newIssueTracker._id).populate({
@@ -427,38 +325,16 @@ const createIssueTracker = async (req, res, next) => {
                 responseIssueTracker.files.push(tempFileObject);
                 await newFile.save();
             }
-            console.log(responseIssueTracker, "from createIssueTracker /path:issue-controller.js 340 363 423");
-            await next({
-                statusCode: 201,
-                status: true,
-                message: "Issue assigned to user with attached files",
-                data: responseIssueTracker,
-            });
+            commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 363 423" );
+            await next(commonItemCreated("Issue assigned to user with attachment", responseIssueTracker));
             
-        } else{
-            console.log(responseIssueTracker, "from createIssueTracker /path:issue-controller.js 340 372");
-            next({
-                statusCode: 201,
-                status: true,
-                message: "Issue assigned to user",
-                data: responseIssueTracker,
-            });
-        }
+        } 
+        commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 372 439");
+        await next(commonItemCreated("Issue assigned to user", responseIssueTracker));
 
-        next({
-            statusCode: 201,
-            status: true,
-            message: "Issue assigned to user",
-            data: newIssueTracker,
-        });
     }
     catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 }
 
@@ -468,15 +344,15 @@ const updateIssueTrackerId = async (req, res, next) => {
         const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ issue_id: issue_id });
         if (!issueTracker) {
-            return res.status(404).json({ message: "Issue tracker not found" });
+            next(commonItemNotFound("Issue tracker not found"));
         }
         const issue = await Issue.findOne({ title: req.body.title });
         if (!issue) {
-            return res.status(404).json({ message: "Issue not found" });
+            next(commonItemNotFound("Issue not found"));
         }
         const user = await UserModel.findOne({ username: req.body.assigned_to });
         if (!user) {
-            return res.status(404).json({ message: "User not found" });
+            next(commonItemNotFound("User not found"));
         }
         issueTracker.issue_id = issue._id;
         issueTracker.assigned_to = user._id;
@@ -484,19 +360,9 @@ const updateIssueTrackerId = async (req, res, next) => {
         issueTracker.file_id = req.body.file_id;
         issueTracker.status = req.body.status;
         await issueTracker.save();
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue tracker updated",
-            data: issueTracker,
-        });
+        next(commonSuccess("Issue tracker updated", issueTracker));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 }
 
@@ -505,37 +371,53 @@ const deleteIssueTracker = async (req, res, next) => {
     try {
         const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ _id: issue_id });
-        console.log(issueTracker, "from issue-controller.js deleteIssueTracker 510 ");
+        commonConsole(issueTracker, "from deleteIssueTracker /path:issue-controller.js [deleteIssueTracker] 510");
         if (!issueTracker) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue tracker not found",
-            });
+            next(commonItemNotFound("Issue tracker not found"));
         }
         await IssueTracker.deleteOne({_id: issue_id});
         if (!issueTracker) {
-            next({
-                statusCode: 404,
-                status: false,
-                message: "Issue tracker not found",
-            });
+            next(commonItemNotFound("Issue tracker not found"));
         }
         // return all issue trackers after deleting
         const issueTrackers2 = await IssueTracker.find({});
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Issue tracker deleted",
-            data: issueTrackers2,
-        });
+        commonConsole(issueTrackers2, "from deleteIssueTracker /path:issue-controller.js [deleteIssueTracker] 520");
+        next(commonSuccess("Issue tracker deleted Successfully", issueTracker));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
+        next(commonCatchBlock(error));
+    }
+}
+
+// get issue tracker by project id
+const getIssueTrackerByProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const project = await Project.findOne({ _id: projectId });
+        commonConsole(project, "from getIssueTrackerByProject /path:issue-controller.js [getIssueTrackerByProject] 396");
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+        const issues = await Issue.find({ project_id: projectId });
+        if (!issues) {
+            next(commonItemNotFound("Issues not found"));
+        }
+        var issueIds = [];
+        for (var i = 0; i < issues.length; i++) {
+            issueIds.push(issues[i]._id);
+        }
+        const issueTracker = await IssueTracker.find({ issue_id: issueIds }).populate({
+            path: 'issue_id',
+            select: 'title description'
+        }).populate({
+            path: 'assigned_to',
+            select: 'username email'
         });
+        if (!issueTracker) {
+            next(commonItemNotFound("Issue tracker not found"));
+        }
+        next(commonSuccess("Issue tracker found", issueTracker));
+    } catch (error) {
+        next(commonCatchBlock(error));
     }
 }
 
@@ -545,9 +427,11 @@ module.exports = {
     createIssue,
     updateIssue,
     deleteIssue,
+    getIssuesByProject,
     getIssueTracker,
     getIssueTrackerId,
     createIssueTracker,
     updateIssueTrackerId,
-    deleteIssueTracker
+    deleteIssueTracker,
+    getIssueTrackerByProject
 };

@@ -2,6 +2,8 @@ const session = require("express-session");
 const jwt = require("jsonwebtoken");
 const md5 = require("md5");
 const UserModel = require("../models/user-model");
+const commonConsole = require("../common/commonConsole");
+const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 
 const validateUser = (data) => {
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
@@ -28,23 +30,14 @@ const createUser = async (req, res, next) => {
         // first check if the username or email already exists in the database
         const user = await UserModel.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] });
         if (user) {
-            console.log("Username or email already exists");
-            next({
-                statusCode: 400,
-                status: false,
-                message: "Username or email already exists",
-            });
+            commonConsole(user, "User already exists");
+            next(commonBadRequest("Username or email already exists"));
         }
 
         // validate the request body first
         const errMessage = validateUser(req.body);
         if (Object.keys(errMessage).length > 0) {
-            next({
-                statusCode: 400,
-                status: false,
-                message: "Validation Error",
-                extraDetails: errMessage,
-            });
+            next(commonBadRequest("Invalid input", errMessage));
         } else {
             // hash the password before saving to the database
             const hashPass = await md5(req.body.password);
@@ -60,30 +53,21 @@ const createUser = async (req, res, next) => {
             }
             const user = new UserModel(newUser);
             await user.save();
-            next({
-                statusCode: 201,
-                status: true,
-                message: "User created successfully",
-                data: {
-                    userId: user._id,
-                    username: user.username,
-                    email: user.email,
-                    role: user.role,
-                    isLoggedIn: true,
-                }
-            });
+
+            const data = {
+                userId: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                isLoggedIn: true,
+            }
+            next(commonItemCreated("User created successfully", data));
         }
 
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
-
 
 const loginUser = async (req, res, next) => {
     try {
@@ -94,46 +78,28 @@ const loginUser = async (req, res, next) => {
         // get the user from the database
         const user = await UserModel.findOne({ email: email });
         if (!user) {
-            next({
-                statusCode: 401,
-                status: false,
-                message: "User not found",
-            });
+            next(commonItemNotFound("User not found"));
         }
         if (user.password !== password) {
-            next({
-                statusCode: 401,
-                status: false,
-                message: "Invalid password",
-                extraDetails: "The password you entered is incorrect",
-            });
+            next(commonUnauthorizedCall("Invalid password"));            
         }
         const userId = user._id.toString();
-        console.log(userId, "from auth controller [loginUser]");
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Login successful",
-            data: {
-                userId: userId,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-                lastSeen: user.updatedAt,
-                isLoggedIn: true,
-            },
-            extraDetails: {
-                token: await user.generateAuthToken(),
-            },
-        });
+        commonConsole(user, "User found");
+        const data = {
+            userId: userId,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            lastSeen: user.updatedAt,
+            isLoggedIn: true,
+        }
+        const token = await user.generateAuthToken();
+
+        next(commonSuccess("Login successful", data, token));
+
 
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 }
 
@@ -145,18 +111,9 @@ const logout = (req, res, next) => {
         session.username = "";
         session.email = "";
 
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Logout successful",
-        });
+        next(commonSuccess("Logout successful", null));
     } catch (error) {
-        next({
-            statusCode: 500,
-            status: false,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 }
 

@@ -1,9 +1,9 @@
-const MessageMiddleware = (err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    const status = err.status || false;
-    const data = err.data || [];
-    const extraDetails = err.extraDetails || [];
+const MessageMiddleware = (value, req, res, next) => {
+    const statusCode = value.statusCode || 500;
+    const message = value.message || "Internal Server error";
+    const status = value.status || false;
+    const data = value.data || [];
+    const extraDetails = value.extraDetails || [];
     res.status(statusCode).json({
         message: message,
         status: status,

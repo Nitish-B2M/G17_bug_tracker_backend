@@ -1,21 +1,7 @@
 const ProjectModel = require('../models/project-model');
+const commonConsole = require('../common/commonConsole');
+const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock } = require('../common/commonStatusCode');
 
-const commonCatchBlock = (error, next) => {
-    next({
-        statusCode: 500,
-        status: false,
-        message: "Internal Server Error",
-        extraDetails: error,
-    });
-};
-
-const commonItemNotFound = (message, next) => {
-    next({
-        statusCode: 404,
-        status: false,
-        message: message,
-    });
-};
 
 // GET all project
 const getAllProject = async (req, res, next) => {
@@ -24,15 +10,11 @@ const getAllProject = async (req, res, next) => {
             path: 'created_by',
             select: 'username email'
         });
-        console.log(JSON.stringify(project, null, 4), "from getAllProject");
-        next({
-            statusCode: 200,
-            status: true,
-            message: "All project",
-            data: project,
-        });
+
+        commonConsole(project, "All project :/projects-controller.js [getAllProject] 29");
+        next(commonSuccess("All projects", project));
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -41,37 +23,32 @@ const getProject = async (req, res, next) => {
     try {
         const projectId = req.params.projectId;
         
-        ProjectModel.findOne({ _id: projectId })
-                .then((project) => {
+        ProjectModel.findOne({ _id: projectId }).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'lead',
+            select: 'username email'
+        }).then((project) => {
             if (!project) {
-                commonItemNotFound("Project not found", next);
+                next(commonItemNotFound("Project not found"));
             }
-            next({
-                statusCode: 200,
-                status: true,
-                message: "Project found",
-                data: project,
-            });
+            next(commonSuccess("Project found", project));
         }).catch((error) => {
-            commonCatchBlock(error, next);
+            next(commonCatchBlock(error));
         });
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
 // POST a new project
 const createProject = async (req, res, next) => {
     try {
-        console.log(req.body, "from createProject");
         const project = await ProjectModel.findOne({ title: req.body.title });
         if (project) {
-            console.log("Project already exists");
-            next({
-                statusCode: 400,
-                status: false,
-                message: "Project already exists",
-            });
+            commonConsole(project, "Project already exists :/projects-controller.js [createProject] 75");
+            next(commonItemCreated("Project already exists", project));
         } else {
             const project = {
                 title: req.body.title,
@@ -83,19 +60,12 @@ const createProject = async (req, res, next) => {
             }
             const newProject = new ProjectModel(project);
             await newProject.save();
-            next({
-                statusCode: 201,
-                status: true,
-                message: "Project created successfully",
-                data: newProject,
-            });
+            
+            commonConsole(newProject, "Project created successfully :/projects-controller.js [createProject] 90");
+            next(commonItemCreated("Project created successfully", newProject));
         }   
     } catch (error) {
-        next({
-            statusCode: 500,
-            message: "Internal Server Error",
-            extraDetails: error,
-        });
+        next(commonCatchBlock(error));
     }
 };
 
@@ -105,7 +75,7 @@ const updateProject = async (req, res, next) => {
         const projectId = req.params.projectId;
         const project = await ProjectModel.findOne({ _id: projectId });
         if (!project) {
-            commonItemNotFound("Project not found", next);
+            next(commonItemNotFound("Project not found"));
         }
         project.title = req.body.title;
         project.description = req.body.description;
@@ -115,11 +85,7 @@ const updateProject = async (req, res, next) => {
         project.status = req.body.status;
         project.department = req.body.department;
         await project.save();
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Project updated successfully",
-            data: {
+        const data = {
                 projectId: project._id,
                 title: project.title,
                 description: project.description,
@@ -128,9 +94,11 @@ const updateProject = async (req, res, next) => {
                 status: project.status,
                 department: project.department,
             }
-        });
+
+        commonConsole(project, "Project updated successfully :/projects-controller.js [updateProject] 125");
+        next(commonSuccess("Project updated successfully", data));
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -140,16 +108,12 @@ const deleteProject = async (req, res, next) => {
         const projectId = req.params.projectId;
         const projectDelete = await ProjectModel.findOneAndDelete({ _id: projectId });
         if (!projectDelete) {
-            commonItemNotFound("Project not found", next);
+            next(commonItemNotFound("Project not found"));
         }
-        next({
-            statusCode: 200,
-            status: true,
-            message: "Project deleted successfully",
-            data: projectDelete,
-        });
+        commonConsole(projectDelete, "Project deleted successfully :/projects-controller.js [deleteProject] 143");
+        next(commonSuccess("Project deleted successfully", projectDelete));
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 
@@ -163,18 +127,13 @@ const getProjectsForUser = async (req, res, next) => {
         // } else {
             const projects = await ProjectModel.find({ created_by: userId });
             if (!projects) {
-                commonItemNotFound("No projects found", next);
+                next(commonItemNotFound("No projects found"));
             }
-            next({
-                statusCode: 200,
-                status: true,
-                message: "Projects found",
-                data: projects,
-            });
+            next(commonSuccess("Projects found", projects));
         // }
 
     } catch (error) {
-        commonCatchBlock(error, next);
+        next(commonCatchBlock(error));
     }
 };
 

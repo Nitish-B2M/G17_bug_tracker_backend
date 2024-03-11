@@ -19,4 +19,7 @@ router.put('/:issueId', Issue.updateIssue);
 // DELETE a issue
 router.delete('/:issueId', Issue.deleteIssue);
 
+// GET all issues by project
+router.get('/project/:projectId', Issue.getIssuesByProject);
+
 module.exports = router;
