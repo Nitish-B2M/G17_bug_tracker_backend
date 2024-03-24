@@ -39,6 +39,7 @@ const userRouter = require("./routes/users-routes");
 const projectRouter = require("./routes/projects-routes");
 const issueRouter = require("./routes/issues-routes");
 const issueTrackerRouter = require("./routes/issues-tracker-routes");
+const publicIssueRouter = require("./routes/public-issue-routes");
 const authRouter = require("./routes/auth-routes");
 const commonConsole = require("./common/commonConsole");
 
@@ -49,6 +50,7 @@ app.use("/api/users", userRouter);
 app.use("/api/projects", projectRouter);
 app.use("/api/issues", issueRouter);
 app.use("/api/issue-tracker", issueTrackerRouter);
+app.use("/api/public-issues", publicIssueRouter);
 
 // error handling middleware
 app.use(MessageMiddleware);
