@@ -1,6 +1,9 @@
 const ProjectModel = require('../models/project-model');
+const ProjectUserModel = require('../models/project-user-model');
+const IssueModel = require('../models/issue-model');
 const commonConsole = require('../common/commonConsole');
-const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock } = require('../common/commonStatusCode');
+const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonAlreadyExists } = require('../common/commonStatusCode');
+const transporter = require('../common/emailConfigurationSetup');
 
 
 // GET all project
@@ -48,7 +51,7 @@ const createProject = async (req, res, next) => {
         const project = await ProjectModel.findOne({ title: req.body.title });
         if (project) {
             commonConsole(project, "Project already exists :/projects-controller.js [createProject] 75");
-            next(commonItemCreated("Project already exists", project));
+            next(commonAlreadyExists("Project already exists", project));
         } else {
             const project = {
                 title: req.body.title,
@@ -122,20 +125,162 @@ const getProjectsForUser = async (req, res, next) => {
     try {
         const userId = req.params.userId;
 
-        // if (userId !== req.session.userId) {
-        //     return res.status(401).json({ message: "Unauthorized" });
-        // } else {
-            const projects = await ProjectModel.find({ created_by: userId });
-            if (!projects) {
-                next(commonItemNotFound("No projects found"));
-            }
-            next(commonSuccess("Projects found", projects));
-        // }
+        const projects = await ProjectModel.find({ created_by: userId });   
+        var flag1 = false;
+        if (!projects) {
+            flag1 = true;
+        }
+
+        // also get the projects where user is assigned
+        const projectsAssigned = await ProjectUserModel.find({ userId: userId }).populate({
+            path: 'projectId',
+            select: '-__v'
+        });
+        var flag2 = false;
+        if (!projectsAssigned) {
+            flag2 = true;
+        }
+
+        if (flag1 && flag2) {
+            next(commonItemNotFound("No projects found"));
+        }
+        // merge the two arrays but format must be same also remove duplicates
+        const allProjects = [...projects, ...projectsAssigned.map((project) => project.projectId)];
+        const uniqueProjects = allProjects.filter((project, index, self) =>
+            index === self.findIndex((t) => (
+                t._id === project._id
+            ))
+        );
+
+        commonConsole(uniqueProjects, "Projects found :/projects-controller.js [getProjectsForUser] 154");
+        next(commonSuccess("Projects found", uniqueProjects));
 
     } catch (error) {
         next(commonCatchBlock(error));
     }
 };
+
+const assignUserToProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const users = req.body.data.users;
+        const assignedBy = req.body.data.assignedBy;
+
+        if (users.length === 0) {
+            next(commonItemCreated("No user selected", users));
+            return;
+        }
+
+        const project = await ProjectModel.findOne({ _id: projectId });
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+        
+        for (let i = 0; i < users.length; i++) {
+            const projectUser = await ProjectUserModel.findOne({ projectId: projectId, userId: users[i].value });
+            if (projectUser) {
+                next(commonAlreadyExists("\""+ users[i].label+ "\" user already assigned to project" , projectUser));
+                return;
+            }
+        }
+
+        for (let i = 0; i < users.length; i++) {
+            const projectUser = {
+                projectId: projectId,
+                userId: users[i].value,
+                assignedBy: assignedBy.userId,
+            }
+            const newProjectUser = new ProjectUserModel(projectUser);
+            await newProjectUser.save();
+
+            transporter.sendMail({
+                from: 'nitishxsharma08@gmail.com',
+                to: 'nitishssharma20@gnu.ac.in',
+                subject: 'You are assigned to a ' + project.title + ' project',
+                text: 'You are assigned to a project: \'<b>' + project.title + '\'</b> by \'' + assignedBy.username + '\' (' + assignedBy.email + ')'
+            }, (error, info) => {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            });
+        }
+
+        next(commonSuccess("User assigned to project", users));
+
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+};
+
+const removeUserFromProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const userId = req.params.userId;
+
+        const project = await ProjectModel.findOne({ _id: projectId });
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+
+        const projectUser = await ProjectUserModel.findOneAndDelete({ projectId: projectId, userId: userId });
+        if (!projectUser) {
+            next(commonItemNotFound("User not found"));
+        }
+        next(commonSuccess("User removed from project", projectUser));
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+const getProjectUsers = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const projectUsers = await ProjectUserModel.find({ projectId: projectId }).populate({
+            path: 'userId',
+            select: 'username email'
+        });
+
+        if (!projectUsers) {
+            next(commonItemNotFound("No users found"));
+        }
+        next(commonSuccess("Users found", projectUsers));
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+const getIssuesCreatedByUserForProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.projectId;
+        const userId = req.params.userId;
+        
+        const project = await ProjectModel.findOne({ _id: projectId });
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+        
+        const projectUser = await ProjectUserModel.findOne({ projectId: projectId, userId: userId });
+        if (!projectUser) {
+            next(commonItemNotFound("User not found for this project"));
+        }
+
+        const issues = await IssueModel.find({ created_by: userId, project_id: projectId });
+        if (!issues) {
+            next(commonItemNotFound("No issues found"));
+        }
+        commonConsole(issues, "Issues found :/projects-controller.js [getIssuesCreatedByUserForProject] 255");
+        next(commonSuccess("Issues found", issues));
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
 
 module.exports = {
     getAllProject,
@@ -143,7 +288,11 @@ module.exports = {
     createProject,
     updateProject,
     deleteProject,
-    getProjectsForUser
+    getProjectsForUser,
+    assignUserToProject,
+    removeUserFromProject,
+    getProjectUsers,
+    getIssuesCreatedByUserForProject
 };
 
 
