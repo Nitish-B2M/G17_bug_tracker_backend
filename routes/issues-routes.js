@@ -22,4 +22,7 @@ router.delete('/:issueId', Issue.deleteIssue);
 // GET all issues by project
 router.get('/project/:projectId', Issue.getIssuesByProject);
 
+// POST a new public issue
+router.post('/public-issues', Issue.createPublicIssue);
+
 module.exports = router;

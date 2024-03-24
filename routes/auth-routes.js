@@ -11,7 +11,7 @@ router.post('/register', authController.createUser);
 // Route for logout page
 router.get('/logout', authController.logout);
 
-// Route for maintaining login
-router.get('/maintainLogin', authController.maintainLogin);
+// Route for reset password
+router.post('/reset', authController.resetPassword);
 
 module.exports = router;

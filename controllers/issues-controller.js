@@ -3,6 +3,7 @@ const File = require('../models/file-model');
 const Project = require('../models/project-model');
 const Issue = require('../models/issue-model');
 const IssueTracker = require('../models/issue-tracker-model');
+const PublicIssue = require('../models/public-issue-model');
 const ObjectId = require('mongoose').Types.ObjectId;
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 const commonConsole = require('../common/commonConsole');
@@ -393,7 +394,7 @@ const getIssueTrackerByProject = async (req, res, next) => {
     try {
         const projectId = req.params.projectId;
         const project = await Project.findOne({ _id: projectId });
-        commonConsole(project, "from getIssueTrackerByProject /path:issue-controller.js [getIssueTrackerByProject] 396");
+        // commonConsole(project, "from getIssueTrackerByProject /path:issue-controller.js [getIssueTrackerByProject] 396");
         if (!project) {
             next(commonItemNotFound("Project not found"));
         }
@@ -412,14 +413,92 @@ const getIssueTrackerByProject = async (req, res, next) => {
             path: 'assigned_to',
             select: 'username email'
         });
+
+        // calculate the number of issue tracker on each date
+        var dateArray = [];
+        var dateCount = [];
+        for (var i = 0; i < issueTracker.length; i++) {
+            var date = issueTracker[i].createdAt.toDateString();
+            if (dateArray.includes(date)) {
+                var index = dateArray.indexOf(date);
+                dateCount[index] = dateCount[index] + 1;
+            } else {
+                dateArray.push(date);
+                dateCount.push(1);
+            }
+        }
+        var dateObject = {};
+        for (var i = 0; i < dateArray.length; i++) {
+            // put in format of "mm/dd/yyyy"
+            var tempDate = new Date(dateArray[i]);
+            var month = tempDate.getMonth() + 1;
+            var day = tempDate.getDate();
+            var year = tempDate.getFullYear();
+            var tempDateString = month + "/" + day + "/" + year;
+            dateObject[tempDateString] = dateCount[i];
+        }
+
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
-        next(commonSuccess("Issue tracker found", issueTracker));
+        next(commonSuccess("Issue tracker found", issueTracker, dateObject));
     } catch (error) {
         next(commonCatchBlock(error));
     }
 }
+
+const createPublicIssue = async (req, res, next) => {
+    console.log(req.body, "===========================");
+    // try {
+    //     const checkIssue = await Issue.findOne({ title : req.body.title});
+
+    //     if (checkIssue) {
+    //         commonConsole(checkIssue, "from createPublicIssue /path:issue-controller.js [createPublicIssue] 119");
+    //         next(commonBadRequest("Issue already exists"));
+    //     }   
+    //     // type cast status to enum
+    //     var status = req.body.status;
+    //     var enumFeature = ['bug', 'defect', 'enhancement'];
+    //     var typeCastFeature = typeCast(status, enumFeature);
+        
+    //     const issue = {
+    //         title: req.body.title,
+    //         description: req.body.description,
+    //         created_by: req.body.created_by,
+    //         feature: typeCastFeature
+    //     }
+    //     const newIssue = await Issue.create(issue);
+    //     await newIssue.save();
+    //     if (!newIssue) {
+    //         next(commonItemNotFound("Issue not found"));
+    //     }
+    //     // const file = req.files;
+    //     // if (file) {
+    //     //     issue.files = [];
+    //     //     for (let i = 0; i < file.length; i++) {
+    //     //         const newFile = await File.create({
+    //     //             filename: file[i].filename,
+    //     //             path: file[i].path,
+    //     //             collection_Type: 'issue',
+    //     //             collection_id: newIssue._id,
+    //     //             created_by: req.body.created_by
+    //     //         });
+    //     //         var tempFileObject = {[file[i].filename]: file[i].path}
+    //     //         issue.files.push(tempFileObject);
+    //     //         await newFile.save();
+    //     //     }
+    //     //     commonConsole(newIssue, "from createPublicIssue /path:issue-controller.js [createPublicIssue] 179 143");
+    //     //     await next(commonItemCreated("Issue created successfully", newIssue));
+    //     // }
+    //     commonConsole(newIssue, "from createPublicIssue /path:issue-controller.js [createPublicIssue] 187 146");
+    //     await next(commonItemCreated("Issue created successfully", newIssue));
+    // }
+    // catch (error) {
+    //     next(commonCatchBlock(error));
+    // }
+}
+
+
 
 module.exports = {
     getAllIssues,
@@ -433,5 +512,6 @@ module.exports = {
     createIssueTracker,
     updateIssueTrackerId,
     deleteIssueTracker,
-    getIssueTrackerByProject
+    getIssueTrackerByProject,
+    createPublicIssue
 };

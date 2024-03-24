@@ -96,7 +96,12 @@ const deleteUser = async (req, res, next) => {
 const getUsersByRole = async (req, res, next) => {
     try {
         const role = req.params.role;
-        const users = await UserModel.find({ role: role });
+        var roles = role.split("-");
+        var users = [];
+        for (let i = 0; i < roles.length; i++) {
+            const user = await UserModel.find({ role: roles[i] });
+            users = users.concat(user);
+        }
         commonConsole(users, "All users by role :/users-controller.js [getUsersByRole] 100");
         next(commonSuccess("All users by role", users));
     } catch (error) {
