@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const md5 = require("md5");
 const UserModel = require("../models/user-model");
 const commonConsole = require("../common/commonConsole");
-const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
+const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall, commonAlreadyExists, commonNoContent, commonNotModified } = require("../common/commonStatusCode");
 
 const validateUser = (data) => {
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
@@ -31,7 +31,7 @@ const createUser = async (req, res, next) => {
         const user = await UserModel.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] });
         if (user) {
             commonConsole(user, "User already exists");
-            next(commonBadRequest("Username or email already exists"));
+            next(commonAlreadyExists("User already exists"));
         }
 
         // validate the request body first
@@ -117,13 +117,25 @@ const logout = (req, res, next) => {
     }
 }
 
-const maintainLogin = (req, res) => {
-    
+const resetPassword = async (req, res, next) => {
+    try {
+        const email = req.body.email;
+        const checkUser = await UserModel.findOne({ email: email });
+        if (!checkUser) {
+            next(commonItemNotFound("User not found"));
+        }
+        const password = req.body.password;
+        const hashPass = md5(password);
+        const user = await UserModel.findOneAndUpdate({ email: email }, { password: hashPass });
+        next(commonSuccess("Password reset successful", user));        
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
 }
 
 module.exports = {
     createUser,
     loginUser,
     logout,
-    maintainLogin,
+    resetPassword,
 }
