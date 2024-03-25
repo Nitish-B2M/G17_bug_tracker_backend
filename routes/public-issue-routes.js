@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-
 const publicIssue = require('../controllers/public-issue-controller');
 
 // GET all public issues

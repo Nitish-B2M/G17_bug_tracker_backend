@@ -7,6 +7,7 @@ const PublicIssue = require('../models/public-issue-model');
 const ObjectId = require('mongoose').Types.ObjectId;
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 const commonConsole = require('../common/commonConsole');
+const transporter = require('../common/emailConfigurationSetup');
 
 // GET all issues
 const getAllIssues = async (req, res, next) => {
@@ -120,6 +121,18 @@ const createIssue = async (req, res, next) => {
             }
             const newIssue = await Issue.create(issue);
             await newIssue.save();
+            transporter.sendMail({
+                from: 'nitishxsharma08@gmail.com',
+                to: 'nitishssharma20@gnu.ac.in',
+                subject: 'You are assigned to a ' + issue.title + ' project',
+                text: 'You are assigned to a project:',
+            }, (error, info) => {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            });
             if (!newIssue) {
                 next(commonItemNotFound("Issue not found"));
             }

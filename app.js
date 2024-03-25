@@ -41,7 +41,6 @@ const issueRouter = require("./routes/issues-routes");
 const issueTrackerRouter = require("./routes/issues-tracker-routes");
 const publicIssueRouter = require("./routes/public-issue-routes");
 const authRouter = require("./routes/auth-routes");
-const commonConsole = require("./common/commonConsole");
 
 
 // use the middleware for all the routes

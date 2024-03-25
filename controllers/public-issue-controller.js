@@ -75,6 +75,7 @@ const updatePublicIssue = async (req, res, next) => {
     console.log(req.params.publicIssueId);
     try {
         const publicIssueId = req.params.publicIssueId;
+        console.log(req.body);
         const publicIssue = await PublicIssueModel.findOne({ _id: publicIssueId });
         if (!publicIssue) {
             next(commonItemNotFound("Public Issue not found"));
