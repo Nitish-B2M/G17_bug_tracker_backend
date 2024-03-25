@@ -7,6 +7,7 @@ const PublicIssue = require('../models/public-issue-model');
 const ObjectId = require('mongoose').Types.ObjectId;
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 const commonConsole = require('../common/commonConsole');
+const transporter = require('../common/emailConfigurationSetup');
 
 // GET all issues
 const getAllIssues = async (req, res, next) => {
@@ -19,7 +20,7 @@ const getAllIssues = async (req, res, next) => {
             select: 'title'
             // sort by last updated
         }).sort({ updatedAt: -1 });
-        
+
         commonConsole(issues, "from getAllIssues /path:issue-controller.js [getAllIssues] 26");
         next(commonSuccess("All issues", issues));
     } catch (error) {
@@ -60,12 +61,12 @@ const getIssue = async (req, res, next) => {
 
             commonConsole(issueWithLastUpdatedBy, "from getIssue /path:issue-controller.js [getIssue] 59");
         }
-        
+
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
         next(commonSuccess("Issue found", issue));
-        
+
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -84,7 +85,7 @@ function typeCast(status, enumArray) {
 const createIssue = async (req, res, next) => {
     // work on this function
     try {
-        const issue = await Issue.findOne({ title : req.body.title, project_id: req.body.project_id });
+        const issue = await Issue.findOne({ title: req.body.title, project_id: req.body.project_id });
         if (issue) {
             commonConsole(issue, "from createIssue /path:issue-controller.js [createIssue] 119");
             next(commonBadRequest("Issue for this project already exists"));
@@ -92,7 +93,7 @@ const createIssue = async (req, res, next) => {
             // type cast status to enum
             var status = req.body.status;
             var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
-            var typeCastStatus = typeCast(status, enumStatus);       
+            var typeCastStatus = typeCast(status, enumStatus);
             // type cast priority to enum
             var priority = req.body.priority;
             var enumPriority = ['blocker', 'critical', 'major', 'minor'];
@@ -120,6 +121,29 @@ const createIssue = async (req, res, next) => {
             }
             const newIssue = await Issue.create(issue);
             await newIssue.save();
+
+            transporter.sendMail({
+                from: 'nitishxsharma08@gmail.com',
+                to: 'bhavinamesara20@gnu.ac.in',
+                subject: 'New issue created:' + issue.title,
+                html: `<!DOCTYPE html>
+                <html>
+                  <body>
+                    <p>Dear user,</p>
+                    <p>You have created an issue:<b> ${issue.title}</b><br>Project: ${issue.project_id}<br>Created by: ${issue.created_by}<br>Description: ${issue.description}<br>Priority: ${issue.priority}<br>Due Date: ${issue.due_date}<br>Feature: ${issue.feature}<br>Visibility: ${issue.visibility}</p>
+                    <p>Click <a href="http://localhost:3000/issue/${newIssue._id}">here</a> to view the issue.</p>
+                    <p>Regards,<br>BugTracker Team</p>
+                  </body>
+                </html>
+                `,
+            }, (error, info) => {
+                if (error) {
+                    console.log(error);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                }
+            });
+
             if (!newIssue) {
                 next(commonItemNotFound("Issue not found"));
             }
@@ -134,7 +158,7 @@ const createIssue = async (req, res, next) => {
                         collection_id: newIssue._id,
                         created_by: req.body.created_by
                     });
-                    var tempFileObject = {[file[i].filename]: file[i].path}
+                    var tempFileObject = { [file[i].filename]: file[i].path }
                     issue.files.push(tempFileObject);
                     await newFile.save();
                 }
@@ -165,23 +189,23 @@ const updateIssue = async (req, res, next) => {
         if (req.body.description) { issue.description = req.body.description; }
         if (req.body.project_id) { issue.project_id = req.body.project_id; }
         if (req.body.created_by) { issue.created_by = req.body.created_by; }
-        if (req.body.status) { 
+        if (req.body.status) {
             var status = req.body.status;
             var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
             var typeCastStatus = typeCast(status, enumStatus);
             issue.status = typeCastStatus;
-        } 
-        if (req.body.priority) { 
+        }
+        if (req.body.priority) {
             var priority = req.body.priority;
             var enumPriority = ['blocker', 'critical', 'major', 'minor'];
-            var typeCastPriority = typeCast(priority, enumPriority);            
+            var typeCastPriority = typeCast(priority, enumPriority);
             issue.priority = typeCastPriority;
         }
         if (req.body.visibility) { issue.visibility = req.body.visibility; }
         if (req.body.feature) { issue.feature = req.body.feature; }
         if (req.body.due_date) { issue.due_date = req.body.due_date; }
-        
-        if (req.body.last_updated_by) { 
+
+        if (req.body.last_updated_by) {
             const user = await UserModel.findOne({ _id: req.body.last_updated_by });
             if (!user) {
                 next(commonItemNotFound("User not found"));
@@ -189,6 +213,7 @@ const updateIssue = async (req, res, next) => {
             issue.last_updated_by = req.body.last_updated_by;
         }
         await issue.save();
+
         const issueWithLastUpdatedBy = await Issue.findById(issueId).populate({
             path: 'created_by',
             select: 'username email'
@@ -202,6 +227,29 @@ const updateIssue = async (req, res, next) => {
 
         commonConsole(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js [updateIssue] 220 274");
         next(commonSuccess("Issue updated", issueWithLastUpdatedBy));
+
+        transporter.sendMail({
+            from: 'nitishxsharma08@gmail.com',
+            to: 'bhavinamesara20@gnu.ac.in',
+            subject: 'Update on issue' + issue.title,
+            html: `<!DOCTYPE html>
+            <html>
+              <body>
+                <p>Dear user,</p>
+                <p>You have an update on issue: <b>${issue.title}</b><br>Project: ${issue.project_id}<br>Created by: ${issue.created_by}<br>Updated by: ${issue.last_updated_by}<br>Description: ${issue.description}<br>Priority: ${issue.priority}<br>Due Date: ${issue.due_date}<br>Feature: ${issue.feature}<br>Visibility: ${issue.visibility}</p>
+                <p>Click <a href="http://localhost:3000/issue/${issueId}">here</a> to view the issue.</p>
+                <p>Regards,<br>BugTracker Team</p>
+              </body>
+            </html>
+            `,
+        }, (error, info) => {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log('Email sent: ' + info.response);
+            }
+        });
+
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -216,7 +264,7 @@ const deleteIssue = async (req, res, next) => {
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
-        await Issue.deleteOne({_id: issueId});
+        await Issue.deleteOne({ _id: issueId });
         next(commonSuccess("Issue deleted Successfully", issue));
     } catch (error) {
         next(commonCatchBlock(error));
@@ -232,13 +280,13 @@ const getIssuesByProject = async (req, res, next) => {
             next(commonItemNotFound("Project not found"));
         }
         const issues = await Issue.find({ project_id: projectId })
-        .populate({
-            path: 'created_by',
-            select: 'username email'
-        }).populate({
-            path: 'project_id',
-            select: 'title'
-        }).sort({ updatedAt: -1 });
+            .populate({
+                path: 'created_by',
+                select: 'username email'
+            }).populate({
+                path: 'project_id',
+                select: 'title'
+            }).sort({ updatedAt: -1 });
         commonConsole(issues, "from getIssuesByProject /path:issue-controller.js [getIssuesByProject] 318");
         next(commonSuccess("All issues by project", issues));
     } catch (error) {
@@ -296,7 +344,7 @@ const createIssueTracker = async (req, res, next) => {
             next(commonItemNotFound("Issue not found"));
         }
 
-        const newIssueTracker = await IssueTracker.create(issueTracker); 
+        const newIssueTracker = await IssueTracker.create(issueTracker);
         await newIssueTracker.save();
         if (!newIssueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
@@ -309,7 +357,7 @@ const createIssueTracker = async (req, res, next) => {
             path: 'assigned_to',
             select: 'username email'
         });
-        
+
         const file = req.files;
         // if files are attached not null or undefined or file [] is not empty
         if (file !== null && file !== undefined && file.length > 0) {
@@ -322,16 +370,43 @@ const createIssueTracker = async (req, res, next) => {
                     collection_id: newIssueTracker._id,
                     created_by: req.body.assignedBy
                 });
-                var tempFileObject = {[file[i].filename]: file[i].path}
+                var tempFileObject = { [file[i].filename]: file[i].path }
                 responseIssueTracker.files.push(tempFileObject);
                 await newFile.save();
             }
-            commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 363 423" );
+            commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 363 423");
             await next(commonItemCreated("Issue assigned to user with attachment", responseIssueTracker));
-            
-        } 
+
+        }
         commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 372 439");
         await next(commonItemCreated("Issue assigned to user", responseIssueTracker));
+
+        // Send email to assigned user
+        const issue = responseIssueTracker.issue_id;
+        const assignedUser = responseIssueTracker.assigned_to;
+        const assignee = responseIssueTracker.assigned_by;
+        const comment = responseIssueTracker.comment;
+        const issueStatus = responseIssueTracker.status;
+        transporter.sendMail({
+            from: 'nitishxsharma08@gmail.com',
+            to: assignedUser.email,
+            subject: 'You are assigned to a new issue: ' + issue.title,
+            html: `<!DOCTYPE html>
+                    <html>
+                      <body>
+                        <p>Dear ${assignedUser.username},</p>
+                        <p>You have been assigned an issue:<br>Title: ${issue.title}<br>Description: ${issue.description}<br>Assigned by: ${assignee}<br>Comment: ${comment}<br>Status: ${issueStatus}</p>
+                        <p>Click <a href="http://localhost:3000/issue/${issue._id}">here</a> to view the issue.</p>
+                        <p>Regards,<br>BugTracker Team</p>
+                      </body>
+                    </html>`
+        }, (error, info) => {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log('Email sent: ' + info.response);
+            }
+        });
 
     }
     catch (error) {
@@ -376,7 +451,7 @@ const deleteIssueTracker = async (req, res, next) => {
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
-        await IssueTracker.deleteOne({_id: issue_id});
+        await IssueTracker.deleteOne({ _id: issue_id });
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
@@ -460,7 +535,7 @@ const createPublicIssue = async (req, res, next) => {
     //     var status = req.body.status;
     //     var enumFeature = ['bug', 'defect', 'enhancement'];
     //     var typeCastFeature = typeCast(status, enumFeature);
-        
+
     //     const issue = {
     //         title: req.body.title,
     //         description: req.body.description,
