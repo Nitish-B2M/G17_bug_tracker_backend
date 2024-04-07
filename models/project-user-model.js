@@ -16,6 +16,10 @@ const ProjectUserSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 module.exports = mongoose.model('ProjectUser', ProjectUserSchema);

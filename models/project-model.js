@@ -11,6 +11,7 @@ const { default: mongoose } = require('mongoose');
 // - updated_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 // - status        ENUM          DEFAULT 'active' ['active', 'inactive']
 // - department    ENUM          DEFAULT 'general' ['general', 'UI', 'backend', 'database', 'testing', 'security']
+// - last_updated_by INT(11)     FOREIGN KEY       REFERENCES user(id)
 
 const projectSchema = new mongoose.Schema({
     // projectname: {
@@ -47,6 +48,11 @@ const projectSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Please provide a user'],
     },
+    status: {
+        type: String,
+        enum: ['active', 'inactive'],
+        default: 'active',
+    },
     visibility: {
         type: String,
         enum: ['public', 'private'],
@@ -57,6 +63,15 @@ const projectSchema = new mongoose.Schema({
         enum: ['general', 'UI', 'backend', 'database', 'testing', 'security'],
         default: 'general',
     },
+    last_updated_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    }
 }, { timestamps: true });
 
 const ProjectModel = mongoose.model('Project', projectSchema);

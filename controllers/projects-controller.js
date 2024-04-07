@@ -59,6 +59,7 @@ const createProject = async (req, res, next) => {
                 created_by: req.body.created_by,
                 lead: req.body.lead,
                 status: req.body.status,
+                visibility: req.body.visibility,
                 department: req.body.department,
             }
             const newProject = new ProjectModel(project);
@@ -80,26 +81,34 @@ const updateProject = async (req, res, next) => {
         if (!project) {
             next(commonItemNotFound("Project not found"));
         }
-        project.title = req.body.title;
-        project.description = req.body.description;
-        project.file_id = req.body.file_id;
-        project.created_by = req.body.created_by;
-        project.lead = req.body.lead;
-        project.status = req.body.status;
-        project.department = req.body.department;
-        await project.save();
-        const data = {
-                projectId: project._id,
-                title: project.title,
-                description: project.description,
-                created_by: project.created_by,
-                lead: project.lead,
-                status: project.status,
-                department: project.department,
-            }
+        const projectUpdate = {}
+        if(req.body.title) { projectUpdate.title = req.body.title; }
+        if(req.body.description) { projectUpdate.description = req.body.description; }
+        if(req.body.lead) { projectUpdate.lead = req.body.lead; }
+        if(req.body.status) { projectUpdate.status = req.body.status; }
+        if(req.body.visibility) { projectUpdate.visibility = req.body.visibility; }
+        if(req.body.department) { projectUpdate.department = req.body.department; }
+        if(req.body.status) { projectUpdate.status = req.body.status; }
+        if(req.body.last_updated_by) { projectUpdate.last_updated_by = req.body.last_updated_by; }
+        projectUpdate.updatedAt = Date.now();
+        
+        await ProjectModel.findOneAndUpdate({ _id: projectId }, projectUpdate);
 
-        commonConsole(project, "Project updated successfully :/projects-controller.js [updateProject] 125");
-        next(commonSuccess("Project updated successfully", data));
+        const updatedProject = await ProjectModel.findOne({ _id: projectId }).populate({
+            path: 'created_by',
+            select: 'username email'})
+            .populate({
+                path: 'lead',
+                select: 'username email'
+            })
+            .populate({
+                path: 'last_updated_by',
+                select: 'username email'
+            });
+
+        commonConsole(updatedProject, "Project updated successfully :/projects-controller.js [updateProject] 103");
+        next(commonSuccess("Project updated successfully", updatedProject));
+        
     } catch (error) {
         next(commonCatchBlock(error));
     }
