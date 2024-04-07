@@ -38,6 +38,10 @@ const issueTrackerSchema = new mongoose.Schema({
         enum: ['open', 'in-progress', 'resolved', 'on-hold'],
         default: 'open',
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 
 const IssueTracker = mongoose.model('IssueTrack', issueTrackerSchema);

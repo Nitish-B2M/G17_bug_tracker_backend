@@ -9,7 +9,7 @@ const getAllPublicIssues = async (req, res, next) => {
         const publicIssue = await PublicIssueModel.find({}).populate({
             path: 'created_by',
             select: 'username email'
-        });
+        }).sort({ updatedAt: -1 });
 
         commonConsole(publicIssue, "All public issue :/public-issue-controller.js [getAllPublicIssues] 29");
         next(commonSuccess("All public issues", publicIssue));

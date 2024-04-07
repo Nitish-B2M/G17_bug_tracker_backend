@@ -32,13 +32,26 @@ const publicIssueSchema = new mongoose.Schema({
         enum: ['bug', 'defect', 'enhancement'],
         default: 'bug',
     },
-    votes: {
+    status: {
+        type: String,
+        enum: ['blocker', 'critical', 'major', 'minor'],
+        default: 'minor'
+    },
+    upvotes: {
         type: Number,
         default: 0,
+    },
+    downvotes: {
+        type: Number,
+        default: 0
     },
     file_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'File',
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false,
     },
 }, { timestamps: true });
 

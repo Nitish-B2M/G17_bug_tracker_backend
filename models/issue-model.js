@@ -70,6 +70,10 @@ const issueSchema = new mongoose.Schema({
         ref: 'User',
         default: null,
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 
 const Issue = mongoose.model('Issue', issueSchema);

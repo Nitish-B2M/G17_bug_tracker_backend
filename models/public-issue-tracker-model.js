@@ -19,6 +19,10 @@ const publicIssueTrackerSchema = new mongoose.Schema({
         enum: ['open', 'closed'],
         default: 'open',
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 
 const PublicIssueTrackerModel = mongoose.model('PublicIssueTracker', publicIssueTrackerSchema);
