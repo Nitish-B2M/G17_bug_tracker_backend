@@ -38,6 +38,10 @@ const fileSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Please provide a user'],
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
 }, { timestamps: true });
 
 const File = mongoose.model('File', fileSchema);

@@ -7,6 +7,7 @@ const MessageMiddleware = (value, req, res, next) => {
     res.status(statusCode).json({
         message: message,
         status: status,
+        statusCode: statusCode,
         data: data,
         extraDetails: extraDetails,
     });

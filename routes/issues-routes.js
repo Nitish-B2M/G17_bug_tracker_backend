@@ -22,6 +22,15 @@ router.delete('/:issueId', Issue.deleteIssue);
 // GET all issues by project
 router.get('/project/:projectId', Issue.getIssuesByProject);
 
+// POST a new comment to an issue
+router.post('/comments/:issueId', Issue.addComment);
+
+// GET all comments by issue
+router.get('/comments/:issueId', Issue.getCommentsByIssue);
+
+// GET a single public issue
+router.get('/public-issues/:publicIssueId', Issue.getPublicIssue);
+
 // POST a new public issue
 router.post('/public-issues', Issue.createPublicIssue);
 
