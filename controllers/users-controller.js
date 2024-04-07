@@ -67,7 +67,7 @@ const updateLastSeen = async (req, res, next) => {
         }
         user.updatedAt = req.body.lastSeen;
         await user.save();
-        next(commonSuccess("User last seen updated", user));
+        next(commonSuccess("User last seen updated", ""));
     }
     catch (error) {
         next(commonCatchBlock(error));
