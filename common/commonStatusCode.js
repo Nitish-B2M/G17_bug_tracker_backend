@@ -25,7 +25,7 @@ const commonItemCreated = (message, data, extraDetails) => {
 const commonNoContent = (message, extraDetails) => {
     return{
         statusCode: 204,
-        status: true,
+        status: false,
         message: message,
         extraDetails: extraDetails || null,
     };
@@ -35,7 +35,7 @@ const commonNoContent = (message, extraDetails) => {
 const commonNotModified = (message, extraDetails) => {
     return{
         statusCode: 304,
-        status: true,
+        status: false,
         message: message,
         extraDetails: extraDetails || null,
     };
