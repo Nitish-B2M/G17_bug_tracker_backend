@@ -123,10 +123,16 @@ const createIssue = async (req, res, next) => {
             const newIssue = await Issue.create(issue);
             await newIssue.save();
 
+            var reciever = await UserModel.findOne({ _id: req.body.created_by });
+            reciever.email = reciever.email;
+            if (reciever.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com"){
+                reciever.email = "dump.yard.area@gmail.com";
+            }
+
 
             transporter.sendMail({
-                from: 'nitishxsharma08@gmail.com',
-                to: 'nitishssharma20@gnu.ac.in',
+                from: "nitishxsharma08@gmail.com",
+                to: reciever.email,
                 subject: 'New issue created:' + issue.title,
                 html: `<!DOCTYPE html>
                 <html>
@@ -135,6 +141,8 @@ const createIssue = async (req, res, next) => {
                     <p>You have created an issue:<b> ${issue.title}</b><br>Project: ${issue.project_id}<br>Created by: ${issue.created_by}<br>Description: ${issue.description}<br>Priority: ${issue.priority}<br>Due Date: ${issue.due_date}<br>Feature: ${issue.feature}<br>Visibility: ${issue.visibility}</p>
                     <p>Click <a href="http://localhost:3000/issue/${newIssue._id}">here</a> to view the issue.</p>
                     <p>Regards,<br>BugTracker Team</p>
+
+                    <p>For any queries, contact us at: <a href="mailto:nitishxsharma08@gmail.com">nitishxsharma08@gmail.com</a></p>
                   </body>
                 </html>
                 `
@@ -227,20 +235,28 @@ const updateIssue = async (req, res, next) => {
             select: 'username email'
         });
 
-        commonConsole(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js [updateIssue] 220 274");
+        console.log(issueWithLastUpdatedBy, "from updateIssue /path:issue-controller.js [updateIssue] 220 274");
         next(commonSuccess("Issue updated", issueWithLastUpdatedBy));
 
+        // Send email to created by user
+        const reciever = await UserModel.findOne({ _id: issue.last_updated_by });
+        if (reciever.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com"){
+            reciever.email = "dump.yard.area@gmail.com";
+        }
+
         transporter.sendMail({
-            from: 'nitishxsharma08@gmail.com',
-            to: 'nitishssharma20@gnu.ac.in',
+            from: "nitishxsharma08@gmail.com",
+            to: reciever.email,
             subject: 'Update on issue' + issue.title,
             html: `<!DOCTYPE html>
             <html>
               <body>
                 <p>Dear user,</p>
-                <p>You have an update on issue: <b>${issue.title}</b><br>Project: ${issue.project_id}<br>Created by: ${issue.created_by}<br>Updated by: ${issue.last_updated_by}<br>Description: ${issue.description}<br>Priority: ${issue.priority}<br>Due Date: ${issue.due_date}<br>Feature: ${issue.feature}<br>Visibility: ${issue.visibility}</p>
+                <p>You have an update on issue: <b>${issue.title}</b><br>Project: ${issueWithLastUpdatedBy?.title}<br>Created by: ${issueWithLastUpdatedBy?.created_by?.username}[${issueWithLastUpdatedBy?.created_by.email}]<br>Updated by: ${issueWithLastUpdatedBy?.last_updated_by?.username}[${issueWithLastUpdatedBy?.last_updated_by?.email}]<br>Description: ${issue.description}<br>Priority: ${issue.priority}<br>Due Date: ${issue.due_date}<br>Feature: ${issue.feature}<br>Visibility: ${issue.visibility}</p>
                 <p>Click <a href="http://localhost:3000/issue/${issueId}">here</a> to view the issue.</p>
                 <p>Regards,<br>BugTracker Team</p>
+
+                <p>For any queries, contact us at: <a href="mailto:nitishxsharma08@gmail.com">nitishxsharma08@gmail.com</a></p>
               </body>
             </html>
             `,
@@ -280,6 +296,11 @@ const addComment = async (req, res, next) => {
         const issueId = req.params.issueId;
         const comment = req.body.comment;
         const created_by = req.body.commentedBy;
+        // check if issue exists
+        const issue = await Issue.findOne({ _id: issueId });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
         const newComment = {
             issue_id: issueId,
             description: comment,
@@ -295,31 +316,101 @@ const addComment = async (req, res, next) => {
         if (!commentObject) {
             next(commonItemNotFound("Comment not added"));
         }
-        commonConsole(commentObject, "from addComment /path:issue-controller.js [addComment] 298");
-        next(commonItemCreated("Comment added successfully", commentObject));
+        // get user details
+        const commentObject2 = await Comments.findById(commentObject._id).populate({
+            path: 'created_by',
+            select: 'username email'
+        });
+        commonConsole(commentObject2, "from addComment /path:issue-controller.js [addComment] 298");
+        next(commonItemCreated("Comment added successfully", commentObject2));
     } catch (error) {
         next(commonCatchBlock(error));
     }
 };
 
 // GET all comments by issue
-const getCommentsByIssue = async (req, res, next) => {
+const getCommentsOnIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
         const issue = await Issue.findOne({ _id: issueId });
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
-        console.log(issueId);
-        const comments = await Comments.find({ issue_id: issueId }).populate({
+        const comments = await Comments.find({ issue_id: issueId, isDeleted: false }).populate({
             path: 'created_by',
             select: 'username email'
         }).populate({
             path: 'issue_id',
             select: 'title'
         }).sort({ updatedAt: -1 });
-        commonConsole(comments, "from getCommentsByIssue /path:issue-controller.js [getCommentsByIssue] 318");
+        commonConsole(comments, "from getCommentsOnIssue /path:issue-controller.js [getCommentsOnIssue] 318");
         next(commonSuccess("All comments by issue", comments));
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// UPDATE a comment by issue
+const updateCommentIssue = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const commentId = req.params.commentId;
+        const issue = await Issue.findOne({ _id: issueId });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        const comment = await Comments.findOne({ _id: commentId });
+        if (!comment) {
+            next(commonItemNotFound("Comment not found"));
+        }
+        if (req.body.comment) { comment.description = req.body.comment; }
+        if (req.body.commentedBy) { comment.created_by = req.body.commentedBy; }
+        if (req.params.issueId) { comment.issue_id = req.params.issueId; }
+        if (req.body.parent_id) { comment.parent_id = req.body.parent_id; }
+        await comment.save();
+        const comment2 = await Comments.findById(comment._id).populate({
+            path: 'created_by',
+            select: 'username email'
+        });
+        commonConsole(comment2, "from updateCommentIssue /path:issue-controller.js [updateCommentIssue] 356");
+        next(commonSuccess("Comment updated", comment2));
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// DELETE a comment by issue
+const deleteCommentIssue = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const commentId = req.params.commentId;
+        const issue = await Issue.findOne({ _id: issueId });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        const comment = await Comments.findOne({ _id: commentId });
+        if (!comment) {
+            next(commonItemNotFound("Comment not found"));
+        }
+
+        // check if comment is present in other comments as parent id
+        const comments = await Comments.find({ parent_id: commentId });
+        if (comments.length > 0) {
+            for (var i = 0; i < comments.length; i++) {
+                await Comments.findOneAndUpdate({ _id: comments[i]._id }, { isDeleted: true });
+            }
+        }
+        await Comments.findOneAndUpdate({ _id: commentId }, { isDeleted: true });
+
+        const comments2 = await Comments.find({ issue_id: issueId, isDeleted: false }).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'issue_id',
+            select: 'title'
+        }).sort({ updatedAt: -1 });
+        
+        next(commonSuccess("Comment deleted Successfully", comments2));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -411,6 +502,39 @@ const createIssueTracker = async (req, res, next) => {
             path: 'assigned_to',
             select: 'username email'
         });
+        // Send email to assigned user
+        const issue = responseIssueTracker.issue_id;
+        const assignedUser = responseIssueTracker.assigned_to;
+        const assignee = responseIssueTracker.assigned_by;
+        const comment = responseIssueTracker.comment;
+        const issueStatus = responseIssueTracker.status;
+        var sender = await UserModel.findOne({ _id: assignee });
+        if (sender.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com"){
+            sender.email = "nitishxsharma08@gmail.com";
+        }
+
+        transporter.sendMail({
+            from: sender.email,
+            to: assignedUser.email,
+            subject: 'You are assigned to a new issue: ' + issue.title,
+            html: `<!DOCTYPE html>
+                    <html>
+                      <body>
+                        <p>Dear ${assignedUser.username},</p>
+                        <p>You have been assigned an issue:<br>Title: ${issue.title}<br>Description: ${issue.description}<br>Assigned by: ${sender.username}<br>Comment: ${comment}<br>Status: ${issueStatus}</p>
+                        <p>Click <a href="http://localhost:3000/issues/${issue._id}">here</a> to view the issue.</p>
+                        <p>Regards,<br>BugTracker Team</p>
+
+                        <p>For any queries, contact us at: <a href="mailto:"${sender.email}">${sender.email}</a></p>
+                      </body>
+                    </html>`
+        }, (error, info) => {
+            if (error) {
+                console.log(error);
+            } else {
+                console.log('Email sent: ' + info.response);
+            }
+        });
 
         const file = req.files;
         // if files are attached not null or undefined or file [] is not empty
@@ -434,34 +558,6 @@ const createIssueTracker = async (req, res, next) => {
         }
         commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 372 439");
         await next(commonItemCreated("Issue assigned to user", responseIssueTracker));
-
-        // Send email to assigned user
-        const issue = responseIssueTracker.issue_id;
-        const assignedUser = responseIssueTracker.assigned_to;
-        const assignee = responseIssueTracker.assigned_by;
-        const comment = responseIssueTracker.comment;
-        const issueStatus = responseIssueTracker.status;
-        transporter.sendMail({
-            from: 'nitishxsharma08@gmail.com',
-            to: 'nitishssharma20@gnu.ac.in',
-            subject: 'You are assigned to a new issue: ' + issue.title,
-            html: `<!DOCTYPE html>
-                    <html>
-                      <body>
-                        <p>Dear ${assignedUser.username},</p>
-                        <p>You have been assigned an issue:<br>Title: ${issue.title}<br>Description: ${issue.description}<br>Assigned by: ${assignee}<br>Comment: ${comment}<br>Status: ${issueStatus}</p>
-                        <p>Click <a href="http://localhost:3000/issue/${issue._id}">here</a> to view the issue.</p>
-                        <p>Regards,<br>BugTracker Team</p>
-                      </body>
-                    </html>`
-        }, (error, info) => {
-            if (error) {
-                console.log(error);
-            } else {
-                console.log('Email sent: ' + info.response);
-            }
-        });
-
     }
     catch (error) {
         next(commonCatchBlock(error));
@@ -501,19 +597,14 @@ const deleteIssueTracker = async (req, res, next) => {
     try {
         const issue_id = req.params.issuetrackerid;
         const issueTracker = await IssueTracker.findOne({ _id: issue_id });
-        commonConsole(issueTracker, "from deleteIssueTracker /path:issue-controller.js [deleteIssueTracker] 510");
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
-        // await IssueTracker.deleteOne({ _id: issue_id });
-        await issueTracker.findAndUpdate({ _id: issue_id }, { isDeleted: true });
-        if (!issueTracker) {
-            next(commonItemNotFound("Issue tracker not found"));
-        }
+        await IssueTracker.findOneAndUpdate({ _id: issue_id }, { isDeleted: true });
         // return all issue trackers after deleting
-        const issueTrackers2 = await IssueTracker.find({});
+        const issueTrackers2 = await IssueTracker.find({ isDeleted: false });
         commonConsole(issueTrackers2, "from deleteIssueTracker /path:issue-controller.js [deleteIssueTracker] 520");
-        next(commonSuccess("Issue tracker deleted Successfully", issueTracker));
+        next(commonSuccess("Issue tracker deleted Successfully", issueTrackers2));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -665,7 +756,9 @@ module.exports = {
     updateIssue,
     deleteIssue,
     addComment,
-    getCommentsByIssue,
+    getCommentsOnIssue,
+    updateCommentIssue,
+    deleteCommentIssue,
     getIssuesByProject,
     getIssueTracker,
     getIssueTrackerId,
