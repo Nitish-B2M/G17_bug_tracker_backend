@@ -26,7 +26,13 @@ router.get('/project/:projectId', Issue.getIssuesByProject);
 router.post('/comments/:issueId', Issue.addComment);
 
 // GET all comments by issue
-router.get('/comments/:issueId', Issue.getCommentsByIssue);
+router.get('/comments/:issueId', Issue.getCommentsOnIssue);
+
+// UPDATE a comment by issue
+router.put('/comments/:issueId/:commentId', Issue.updateCommentIssue);
+
+// DELETE a comment by issue
+router.delete('/comments/:issueId/:commentId', Issue.deleteCommentIssue);
 
 // GET a single public issue
 router.get('/public-issues/:publicIssueId', Issue.getPublicIssue);

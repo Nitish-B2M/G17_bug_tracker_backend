@@ -61,7 +61,6 @@ const updateLastSeen = async (req, res, next) => {
         const userId = req.params.userId;
         // get the user from the database
         const user = await UserModel.findOne({ _id: userId });
-        console.log(user, "from updateLastSeen");
         if (!user) {
             next(commonItemNotFound("User not found"));
         }
