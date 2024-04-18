@@ -14,13 +14,6 @@ const { default: mongoose } = require('mongoose');
 // - last_updated_by INT(11)     FOREIGN KEY       REFERENCES user(id)
 
 const projectSchema = new mongoose.Schema({
-    // projectname: {
-    //     type: String,
-    //     required: [true, 'Please provide a projectname'],
-    //     unique: true,
-    //     minlength: 3,
-    //     maxlength: 50,
-    // },
     title: {
         type: String,
         required: [true, 'Please provide a title'],
