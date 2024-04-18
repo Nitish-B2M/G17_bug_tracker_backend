@@ -278,13 +278,13 @@ const deleteIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
         const issue = await Issue.findOne({ _id: issueId });
-        commonConsole(issue, "from deleteIssue /path:issue-controller.js [deleteIssue] 292");
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
-        // await Issue.deleteOne({ _id: issueId });
-        await issue.findAndUpdate({ _id: issueId }, { isDeleted: true });
-        next(commonSuccess("Issue deleted Successfully", issue));
+        await Issue.findOneAndUpdate({ _id: issueId }, { isDeleted: true });
+        
+        commonConsole(issue, "from deleteIssue /path:issue-controller.js [deleteIssue] 274");
+        next(commonSuccess("Issue deleted Successfully"));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -489,8 +489,15 @@ const createIssueTracker = async (req, res, next) => {
             next(commonItemNotFound("Issue not found"));
         }
 
-        const newIssueTracker = await IssueTracker.create(issueTracker);
-        await newIssueTracker.save();
+        // also check if user already assigned to issue
+        const checkIssueTracker = await IssueTracker.findOne({ issue_id: issueTracker.issue_id, assigned_to: issueTracker.assigned_to });
+        if (checkIssueTracker) {
+            commonConsole(checkIssueTracker.length, "User already assigned to issue from /path:issue-controller.js [createIssueTracker] 340");
+            next(commonBadRequest("User already assigned to issue"));
+        } else {
+        
+            const newIssueTracker = await IssueTracker.create(issueTracker);
+        // await newIssueTracker.save();
         if (!newIssueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
@@ -558,6 +565,7 @@ const createIssueTracker = async (req, res, next) => {
         }
         commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 372 439");
         await next(commonItemCreated("Issue assigned to user", responseIssueTracker));
+        }
     }
     catch (error) {
         next(commonCatchBlock(error));
