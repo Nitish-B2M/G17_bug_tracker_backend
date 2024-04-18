@@ -32,4 +32,7 @@ router.get('/users/:projectId', Project.getProjectUsers);
 // GET all issues created by a user for a project
 router.get('/:projectId/issues/user/:userId', Project.getIssuesCreatedByUserForProject);
 
+// GET single project details
+router.get('/:projectId/details', Project.getProjectDetails);
+
 module.exports = router;
