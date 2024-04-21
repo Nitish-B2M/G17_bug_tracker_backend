@@ -1,6 +1,7 @@
 const PublicIssueModel = require('../models/public-issue-model');
 const PublicIssueTrackerModel = require('../models/public-issue-tracker-model');
 const PublicInteractionModel = require('../models/public-interaction-model');
+const Comments = require('../models/comment-model');
 const commonConsole = require('../common/commonConsole');
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonNotModified } = require('../common/commonStatusCode');
 
@@ -224,6 +225,67 @@ const createPublicInteraction = async (req, res, next) => {
     }
 }
 
+// POST a new comment to an issue
+const addComment = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const comment = req.body.comment;
+        const created_by = req.body.commentedBy;
+        // check if issue exists
+        const issue = await PublicIssueModel.findOne({ _id: issueId });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        const newComment = {
+            issue_id: issueId,
+            description: comment,
+            created_by: created_by
+        }
+        // if parent id is not null
+        if (req.body.parentId) {
+            newComment.parent_id = req.body.parentId;
+        }
+        const commentObject = await Comments.create(newComment);
+        await commentObject.save();
+
+        if (!commentObject) {
+            next(commonItemNotFound("Comment not added"));
+        }
+        // get user details
+        const commentObject2 = await Comments.findById(commentObject._id).populate({
+            path: 'created_by',
+            select: 'username email'
+        });
+        commonConsole(commentObject2, "from addComment /path:issue-controller.js [addComment] 298");
+        next(commonItemCreated("Comment added successfully", commentObject2));
+        
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// GET all comments by issue
+const getCommentsOnPublicIssue = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const issue = await PublicIssueModel.findOne({ _id: issueId });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        const comments = await Comments.find({ issue_id: issueId, isDeleted: false }).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'issue_id',
+            select: 'title'
+        }).sort({ updatedAt: -1 });
+        commonConsole(comments, "from getCommentsOnPublicIssue /path:issue-controller.js [getCommentsOnPublicIssue] 318");
+        next(commonSuccess("All comments by issue", comments));
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
 
 module.exports = {
     getAllPublicIssues,
@@ -232,4 +294,6 @@ module.exports = {
     updatePublicIssue,
     deletePublicIssue,
     createPublicInteraction,
+    addComment,
+    getCommentsOnPublicIssue,
 };

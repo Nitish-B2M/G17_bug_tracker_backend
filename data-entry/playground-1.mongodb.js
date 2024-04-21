@@ -35,4 +35,10 @@ use('g17DB');
 // db.users.find({ email: "manager@gmail.com" });
 
 // set createdAt and updatedAt fields to current date in public issues
-db.publicissues.updateMany({}, { $set: { createdAt: new Date(), updatedAt: new Date() } });
+// db.publicissues.updateMany({}, { $set: { createdAt: new Date(), updatedAt: new Date() } });
+
+// get issues fro id = 6609a3ac5dc31d6b7183288c
+// db.issues.find({ _id: ObjectId("6609a3ac5dc31d6b7183288c") });
+
+// add isDeleted field to all comments
+db.commentmodels.updateMany({}, { $set: { isDeleted: false } });

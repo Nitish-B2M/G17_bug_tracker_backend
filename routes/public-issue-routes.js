@@ -20,4 +20,9 @@ router.delete('/:publicIssueId', publicIssue.deletePublicIssue);
 // POST a new public interaction
 router.post('/interaction/:publicIssueId', publicIssue.createPublicInteraction);
 
+// POST a new comment to an issue
+router.post('/comments/:issueId', publicIssue.addComment);
+
+// GET all comments of an issue
+router.get('/comments/:issueId', publicIssue.getCommentsOnPublicIssue);
 module.exports = router;
