@@ -4,7 +4,7 @@ const Project = require('../models/project-model');
 const Issue = require('../models/issue-model');
 const IssueTracker = require('../models/issue-tracker-model');
 const PublicIssue = require('../models/public-issue-model');
-const ObjectId = require('mongoose').Types.ObjectId;
+const ProjectUserModel = require('../models/project-user-model');
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 const commonConsole = require('../common/commonConsole');
 const transporter = require('../common/emailConfigurationSetup');
@@ -490,13 +490,13 @@ const createIssueTracker = async (req, res, next) => {
         }
 
         // also check if user already assigned to issue
-        const checkIssueTracker = await IssueTracker.findOne({ issue_id: issueTracker.issue_id, assigned_to: issueTracker.assigned_to });
+        const checkIssueTracker = await IssueTracker.findOne({ issue_id: issueTracker.issue_id, assigned_to: issueTracker.assigned_to, isDeleted: false});
         if (checkIssueTracker) {
             commonConsole(checkIssueTracker.length, "User already assigned to issue from /path:issue-controller.js [createIssueTracker] 340");
             next(commonBadRequest("User already assigned to issue"));
         } else {
         
-            const newIssueTracker = await IssueTracker.create(issueTracker);
+        const newIssueTracker = await IssueTracker.create(issueTracker);
         // await newIssueTracker.save();
         if (!newIssueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
@@ -755,7 +755,125 @@ const createPublicIssue = async (req, res, next) => {
     }
 }
 
+const getIssuesByUser = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        // get user role
+        const user = await UserModel.findOne({ _id: userId });
+        if (!user) {
+            next(commonItemNotFound("User not found"));
+        }
+        var projects = [];
+        if (user.role === 'admin') {
+            const issues = await Issue.find({ isDeleted: false }).populate({
+                path: 'created_by',
+                select: 'username email'
+            }).populate({
+                path: 'project_id',
+                select: 'title'
+            }).sort({ updatedAt: -1 });
+            commonConsole(issues, "from getIssuesByUser /path:issue-controller.js [getIssuesByUser] 621");
+            next(commonSuccess("All issues by user", issues));
+        } else {
+            projects = await ProjectUserModel.find({ userId: userId, isDeleted: false });
+            if (!projects) {
+                next(commonItemNotFound("Project not assigned to you"));
+            }
+            var projectIds = [];
+            for (var i = 0; i < projects.length; i++) {
+                projectIds.push(projects[i].projectId);
+            }
+            const issues = await Issue.find({ project_id: projectIds, isDeleted: false }).populate({
+                path: 'created_by',
+                select: 'username email'
+            }).populate({
+                path: 'project_id',
+                select: 'title'
+            }).sort({ updatedAt: -1 });
+            // remove duplicates from issues and visibilityIssues
+            commonConsole(issues, "from getIssuesByUser /path:issue-controller.js [getIssuesByUser] 621");
+            next(commonSuccess("All issues by user", issues));
+        }
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
 
+const getUsersToAssign = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        // get project for issue
+        const project = await Project.findOne({ _id: issue.project_id, isDeleted: false});
+        if (!project) {
+            next(commonItemNotFound("Project not found"));
+        }
+        // get users assigned to project
+        const projectUsers = await ProjectUserModel.find({ projectId: project._id, isDeleted: false});
+        if (!projectUsers) {
+            next(commonItemNotFound("Users not found"));
+        }
+        // get all users
+        const users = await UserModel.find({ isDeleted: false}, { username: 1, email: 1, role: 1, _id: 1});
+        if (!users) {
+            next(commonItemNotFound("Users not found"));
+        }
+        var usersToAssign = [];
+        for (var i = 0; i < users.length; i++) {
+            for (var j = 0; j < projectUsers.length; j++) {
+                if (users[i]._id.toString() === projectUsers[j].userId.toString()) {
+                    console.log("j");
+                    usersToAssign.push(users[i]);
+                }
+            }
+        }
+        commonConsole(usersToAssign, "from getUsersToAssign /path:issue-controller.js [getUsersToAssign] 834");
+        next(commonSuccess("Users to assign", usersToAssign));
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+const transferIssue = async (req, res, next) => {
+    try {
+        const issueId = req.params.issueId;
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false });
+        if (!issue) {
+            next(commonItemNotFound("Issue not found"));
+        }
+        // update created by
+        await Issue.findOneAndUpdate({ _id: issueId, isDeleted: false }, { created_by: req.body.transferId, last_updated_by: req.body.last_updated_by });
+        
+        // update all comment why comment created by
+        // await Comments.updateMany({
+        //     issue_id: issueId,
+        //     isDeleted: false
+        // }, { created_by: req.body.transferId });
+
+        const issue2 = await Issue.findById(issueId).populate({
+            path: 'created_by',
+            select: 'username email'
+        }).populate({
+            path: 'project_id',
+            select: 'title'
+        }).populate({
+            path: 'last_updated_by',
+            select: 'username email'
+        });
+
+        commonConsole(issue2, "from transferIssue /path:issue-controller.js [transferIssue] 865");
+        next(commonSuccess("Issue transferred", issue2));
+    }
+    catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+        
 
 module.exports = {
     getAllIssues,
@@ -775,5 +893,8 @@ module.exports = {
     deleteIssueTracker,
     getIssueTrackerByProject,
     getPublicIssue,
-    createPublicIssue
+    createPublicIssue,
+    getIssuesByUser,
+    getUsersToAssign,
+    transferIssue
 };

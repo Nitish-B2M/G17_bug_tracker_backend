@@ -40,4 +40,17 @@ router.get('/public-issues/:publicIssueId', Issue.getPublicIssue);
 // POST a new public issue
 router.post('/public-issues', Issue.createPublicIssue);
 
+// PUT update a public issue
+
+// DELETE a public issue
+
+// GET user assigned issues along with public visibility of issues
+router.get('/user/:userId', Issue.getIssuesByUser);
+
+// GET user to assign to an issue
+router.get('/:issueId/assignee', Issue.getUsersToAssign);
+
+// POST transfer an issue to another user
+router.post('/:issueId/transfer', Issue.transferIssue);
+
 module.exports = router;
