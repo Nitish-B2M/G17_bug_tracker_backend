@@ -5,15 +5,18 @@ const Issue = require('../models/issue-model');
 const IssueTracker = require('../models/issue-tracker-model');
 const PublicIssue = require('../models/public-issue-model');
 const ProjectUserModel = require('../models/project-user-model');
+const Notification = require('../models/notification-model');
+const PrModel = require('../models/pr-model');
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall } = require('../common/commonStatusCode');
 const commonConsole = require('../common/commonConsole');
 const transporter = require('../common/emailConfigurationSetup');
 const Comments = require('../models/comment-model');
+const { assignIssueNotification } = require('../common/commonNotification');
 
 // GET all issues
 const getAllIssues = async (req, res, next) => {
     try {
-        const issues = await Issue.find({ isDeleted: false }).populate({
+        const issues = await Issue.find({ isDeleted: false, visibility: "private" }).populate({
             path: 'created_by',
             select: 'username email'
         }).populate({
@@ -33,7 +36,7 @@ const getAllIssues = async (req, res, next) => {
 const getIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        const checkFirstIssue = await Issue.findOne({ _id: issueId, isDeleted: false });
+        const checkFirstIssue = await Issue.findOne({ _id: issueId, isDeleted: false, visibility: "private" });
 
         if (!checkFirstIssue) {
             next(commonItemNotFound("Issue not found"));
@@ -125,7 +128,7 @@ const createIssue = async (req, res, next) => {
 
             var reciever = await UserModel.findOne({ _id: req.body.created_by });
             reciever.email = reciever.email;
-            if (reciever.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com"){
+            if (reciever.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com" || reciever.email === "nitish-user@gmail.com"){
                 reciever.email = "dump.yard.area@gmail.com";
             }
 
@@ -190,7 +193,7 @@ const createIssue = async (req, res, next) => {
 const updateIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        const issue = await Issue.findOne({ _id: issueId });
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
 
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
@@ -282,6 +285,10 @@ const deleteIssue = async (req, res, next) => {
             next(commonItemNotFound("Issue not found"));
         }
         await Issue.findOneAndUpdate({ _id: issueId }, { isDeleted: true });
+        // delete all comments
+        await Comments.updateMany({ issue_id: issueId }, { $set: { isDeleted: true } });
+        // delete all issue trackers
+        await IssueTracker.updateMany({ issue_id: issueId }, { $set: { isDeleted: true } });
         
         commonConsole(issue, "from deleteIssue /path:issue-controller.js [deleteIssue] 274");
         next(commonSuccess("Issue deleted Successfully"));
@@ -297,7 +304,7 @@ const addComment = async (req, res, next) => {
         const comment = req.body.comment;
         const created_by = req.body.commentedBy;
         // check if issue exists
-        const issue = await Issue.findOne({ _id: issueId });
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
@@ -332,7 +339,7 @@ const addComment = async (req, res, next) => {
 const getCommentsOnIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        const issue = await Issue.findOne({ _id: issueId });
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
@@ -343,7 +350,7 @@ const getCommentsOnIssue = async (req, res, next) => {
             path: 'issue_id',
             select: 'title'
         }).sort({ updatedAt: -1 });
-        commonConsole(comments, "from getCommentsOnIssue /path:issue-controller.js [getCommentsOnIssue] 318");
+        commonConsole(comments, "from getCommentsOnIssue /path:issue-controller.js [getCommentsOnIssue] 348");
         next(commonSuccess("All comments by issue", comments));
     } catch (error) {
         next(commonCatchBlock(error));
@@ -355,7 +362,7 @@ const updateCommentIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
         const commentId = req.params.commentId;
-        const issue = await Issue.findOne({ _id: issueId });
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
@@ -424,7 +431,7 @@ const getIssuesByProject = async (req, res, next) => {
         if (!project) {
             next(commonItemNotFound("Project not found"));
         }
-        const issues = await Issue.find({ project_id: projectId })
+        const issues = await Issue.find({ project_id: projectId, isDeleted: false})
             .populate({
                 path: 'created_by',
                 select: 'username email'
@@ -443,7 +450,28 @@ const getIssuesByProject = async (req, res, next) => {
 const getIssueTracker = async (req, res, next) => {
     try {
         const issueTracker = await IssueTracker.find({ isDeleted: false });
-        next(commonSuccess("All issue trackers", issueTracker));
+        if (!issueTracker) {
+            next(commonItemNotFound("Issue tracker not found"));
+        }
+        // get comments
+        const responseIssueTracker = [];
+        for (var i = 0; i < issueTracker.length; i++) {
+            const comments = await Comments.find({ issue_id: issueTracker[i]._id, created_by: issueTracker[i].assigned_by }).sort({ updatedAt: -1 });
+            const temp = {
+                _id: issueTracker[i]._id,
+                issue_id: issueTracker[i].issue_id,
+                assigned_by: issueTracker[i].assigned_by,
+                assigned_to: issueTracker[i].assigned_to,
+                status: issueTracker[i].status,
+                comment: comments[0].description,
+                isDeleted: issueTracker[i].isDeleted,
+                createdAt: issueTracker[i].createdAt,
+                updatedAt: issueTracker[i].updatedAt,
+            }
+            responseIssueTracker.push(temp);
+        }
+        commonConsole(responseIssueTracker, "/path:issue-controller.js [getIssueTracker] 467");
+        next(commonSuccess("All issue trackers", responseIssueTracker));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -463,7 +491,26 @@ const getIssueTrackerId = async (req, res, next) => {
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
-        next(commonSuccess("Issue tracker found", issueTracker));
+        // also get comments
+        const responseIssueTracker = [];
+        for (var i = 0; i < issueTracker.length; i++) {
+            const comments = await Comments.find({ issue_id: issueTracker[i]._id, created_by: issueTracker[i].assigned_by }).sort({ updatedAt: -1 });
+            const temp = {
+                _id: issueTracker[i]._id,
+                issue_id: issueTracker[i].issue_id,
+                assigned_by: issueTracker[i].assigned_by,
+                assigned_to: issueTracker[i].assigned_to,
+                status: issueTracker[i].status,
+                comment: comments[0].description,
+                isDeleted: issueTracker[i].isDeleted,
+                createdAt: issueTracker[i].createdAt,
+                updatedAt: issueTracker[i].updatedAt,
+            }
+            responseIssueTracker.push(temp);
+        }
+
+        commonConsole(responseIssueTracker, "from getIssueTrackerId /path:issue-controller.js [getIssueTrackerId] 507");
+        next(commonSuccess("Issue tracker found", responseIssueTracker));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -481,7 +528,6 @@ const createIssueTracker = async (req, res, next) => {
             issue_id: req.body.assignIssueId,
             assigned_by: req.body.assignedBy,
             assigned_to: req.body.assignTo,
-            comment: req.body.assignDescription,
             status: typeCastStatus
         }
 
@@ -497,29 +543,55 @@ const createIssueTracker = async (req, res, next) => {
         } else {
         
         const newIssueTracker = await IssueTracker.create(issueTracker);
-        // await newIssueTracker.save();
+        await newIssueTracker.save();
+        const trackerComment = {
+            issue_id: newIssueTracker._id,
+            description: req.body.assignDescription,
+            created_by: newIssueTracker.assigned_by
+        }
+        const newComment = await Comments.create(trackerComment);
+        await newComment.save();
+        if (!newComment) {
+            next(commonItemNotFound("Comment not added"));
+        }
         if (!newIssueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
         // populate user and issue
-        const responseIssueTracker = await IssueTracker.findById(newIssueTracker._id).populate({
+        const resIssueTracker = await IssueTracker.findById(newIssueTracker._id).populate({
             path: 'issue_id',
             select: 'title description'
         }).populate({
             path: 'assigned_to',
             select: 'username email'
         });
+
+        // get comment
+        const responseComment = await Comments.find({ issue_id: resIssueTracker._id, created_by: resIssueTracker.assigned_by }).sort({ updatedAt: -1 });
+        const responseIssueTracker = {
+            _id: resIssueTracker._id,
+            issue_id: resIssueTracker.issue_id,
+            assigned_by: resIssueTracker.assigned_by,
+            assigned_to: resIssueTracker.assigned_to,
+            status: resIssueTracker.status,
+            comment: responseComment[0].description,
+            isDeleted: resIssueTracker.isDeleted,
+            createdAt: resIssueTracker.createdAt,
+            updatedAt: resIssueTracker.updatedAt,
+        }
+        commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 363 423");
         // Send email to assigned user
         const issue = responseIssueTracker.issue_id;
         const assignedUser = responseIssueTracker.assigned_to;
         const assignee = responseIssueTracker.assigned_by;
-        const comment = responseIssueTracker.comment;
         const issueStatus = responseIssueTracker.status;
         var sender = await UserModel.findOne({ _id: assignee });
-        if (sender.email === "nitish@gmail.com" || reciever.email === "developer@gmail.com" || reciever.email === "user@gmail.com"){
+        if (sender.email === "nitish@gmail.com" || sender.email === "developer@gmail.com" || sender.email === "manushi2@gmail.com" || sender.email === "nitish-user@gmail.com"){
             sender.email = "nitishxsharma08@gmail.com";
         }
-
+        if (assignedUser.email === "nitish@gmail.com" || assignedUser.email === "developer@gmail.com" || assignedUser.email === "manushi2@gmail.com" || assignedUser.email === "nitish-user@gmail.com"){
+            assignedUser.email = "dump.yard.area@gmail.com";
+        }
         transporter.sendMail({
             from: sender.email,
             to: assignedUser.email,
@@ -528,7 +600,7 @@ const createIssueTracker = async (req, res, next) => {
                     <html>
                       <body>
                         <p>Dear ${assignedUser.username},</p>
-                        <p>You have been assigned an issue:<br>Title: ${issue.title}<br>Description: ${issue.description}<br>Assigned by: ${sender.username}<br>Comment: ${comment}<br>Status: ${issueStatus}</p>
+                        <p>You have been assigned an issue:<br>Title: ${issue.title}<br>Description: ${issue.description}<br>Assigned by: ${sender.username}<br>Comment: ${responseIssueTracker.comment}<br>Status: ${issueStatus}</p>
                         <p>Click <a href="http://localhost:3000/issues/${issue._id}">here</a> to view the issue.</p>
                         <p>Regards,<br>BugTracker Team</p>
 
@@ -542,6 +614,9 @@ const createIssueTracker = async (req, res, next) => {
                 console.log('Email sent: ' + info.response);
             }
         });
+        const notification = assignIssueNotification(issue.title, sender, assignedUser._id);
+        const newNotification = await Notification.create(notification);
+        await newNotification.save();    
 
         const file = req.files;
         // if files are attached not null or undefined or file [] is not empty
@@ -561,7 +636,6 @@ const createIssueTracker = async (req, res, next) => {
             }
             commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 363 423");
             await next(commonItemCreated("Issue assigned to user with attachment", responseIssueTracker));
-
         }
         commonConsole(responseIssueTracker, "from createIssueTracker /path:issue-controller.js [createIssueTracker] 340 372 439");
         await next(commonItemCreated("Issue assigned to user", responseIssueTracker));
@@ -594,6 +668,7 @@ const updateIssueTrackerId = async (req, res, next) => {
         issueTracker.file_id = req.body.file_id;
         issueTracker.status = req.body.status;
         await issueTracker.save();
+        commonConsole(issueTracker, "from updateIssueTrackerId /path:issue-controller.js [updateIssueTrackerId] 485");
         next(commonSuccess("Issue tracker updated", issueTracker));
     } catch (error) {
         next(commonCatchBlock(error));
@@ -609,6 +684,10 @@ const deleteIssueTracker = async (req, res, next) => {
             next(commonItemNotFound("Issue tracker not found"));
         }
         await IssueTracker.findOneAndUpdate({ _id: issue_id }, { isDeleted: true });
+        // delete all comments
+        await Comments.updateMany({ issue_id: issue_id }, { $set: { isDeleted: true } });
+        // delete all notifications
+        await Notification.updateMany({ issue_id: issue_id }, { $set: { isDeleted: true } });
         // return all issue trackers after deleting
         const issueTrackers2 = await IssueTracker.find({ isDeleted: false });
         commonConsole(issueTrackers2, "from deleteIssueTracker /path:issue-controller.js [deleteIssueTracker] 520");
@@ -627,7 +706,7 @@ const getIssueTrackerByProject = async (req, res, next) => {
         if (!project) {
             next(commonItemNotFound("Project not found"));
         }
-        const issues = await Issue.find({ project_id: projectId });
+        const issues = await Issue.find({ project_id: projectId, isDeleted: false});
         if (!issues) {
             next(commonItemNotFound("Issues not found"));
         }
@@ -670,7 +749,163 @@ const getIssueTrackerByProject = async (req, res, next) => {
         if (!issueTracker) {
             next(commonItemNotFound("Issue tracker not found"));
         }
+        commonConsole(issueTracker, "from getIssueTrackerByProject /path:issue-controller.js [getIssueTrackerByProject] 704");
         next(commonSuccess("Issue tracker found", issueTracker, dateObject));
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// get issue tracker by user id
+const getIssueTrackerByUser = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        const user = await UserModel.findOne({ _id: userId });
+        if (!user) {
+            next(commonItemNotFound("User not found"));
+        }
+        const issueTracker = await IssueTracker.find({ assigned_to: userId, isDeleted: false }).populate({
+            path: 'issue_id',
+            select: 'title description project_id'
+        }).populate({
+            path: 'assigned_by',
+            select: 'username email'
+        }).populate({
+            path: 'assigned_to',
+            select: 'username email'
+        }).sort({ updatedAt: -1 });
+        if (!issueTracker) {
+            next(commonItemNotFound("Issue tracker not found for user"));
+        }
+        // get comments
+        var responseIssueTracker = [];
+        for (var i = 0; i < issueTracker.length; i++) {
+            const comments = await Comments.find({ issue_id: issueTracker[i]._id, created_by: issueTracker[i].assigned_by }).sort({ updatedAt: -1 });
+            const project = await Project.findOne({ _id: issueTracker[i].issue_id.project_id });
+            const temp = {
+                _id: issueTracker[i]._id,
+                issue_id: issueTracker[i].issue_id,
+                assigned_by: issueTracker[i].assigned_by,
+                assigned_to: issueTracker[i].assigned_to,
+                status: issueTracker[i].status,
+                comment: comments[0].description,
+                isDeleted: issueTracker[i].isDeleted,
+                createdAt: issueTracker[i].createdAt,
+                updatedAt: issueTracker[i].updatedAt,
+                project: project.title
+            }
+            responseIssueTracker.push(temp);
+        }
+        commonConsole(responseIssueTracker, "from getIssueTrackerByUser /path:issue-controller.js [getIssueTrackerByUser] 792");
+        next(commonSuccess("Issue tracker found for user", responseIssueTracker));
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// update issue tracker status
+const updateITStatusForUser = async (req, res, next) => {
+    try {
+        const issueTrackerId = req.params.issuetrackerid;
+        const issueTracker = await IssueTracker.findOne({ _id: issueTrackerId });
+        if (!issueTracker) {
+            next(commonItemNotFound("Issue tracker not found"));
+        }
+        var status = req.body.status;
+        if (status == "resolved") {
+            status = "on-hold";
+        }
+        var enumStatus = ['open', 'in-progress', 'resolved', 'on-hold'];
+        var typeCastStatus = typeCast(status, enumStatus);
+        issueTracker.status = typeCastStatus;
+        await issueTracker.save();
+
+        if(status == "on-hold" || status == "resolved"){
+            const issue = await Issue.findOne({ _id: issueTracker.issue_id, isDeleted: false});
+            const project = await Project.findOne({ _id: issue.project_id, isDeleted: false});
+            const prCheck = await PrModel.findOne({ issuetracker_id: issueTrackerId, issue_id: issue._id, project_id: project._id, user_id: issueTracker.assigned_to });
+            if (prCheck) { next(commonBadRequest("PR already exists")); }
+
+            const pr = await PrModel.create({ 
+                issuetracker_id: issueTrackerId,
+                issue_id: issue._id,
+                project_id: project._id,
+                user_id: issueTracker.assigned_to,
+                creator_id: issueTracker.assigned_by,
+                status: "pending",
+            });
+            await pr.save();
+            var currentIssueTrackerId = issueTrackerId;
+            const comment = {
+                issue_id: pr._id,
+                description: req.body.description,
+                created_by: req.body.user_id
+            }
+            const newComment = await Comments.create(comment);
+            await newComment.save();
+            if (!newComment) {next(commonItemNotFound("Comment not added"));}
+            
+            const responseIssueTracker = await IssueTracker.findById(currentIssueTrackerId).populate({
+                path: 'issue_id',
+                select: 'title description'
+            }).populate({
+                path: 'assigned_to',
+                select: 'username email'
+            });
+            commonConsole(responseIssueTracker, "from updateITStatusForUser /path:issue-controller.js [updateITStatusForUser] 853");
+            next(commonSuccess("Issue tracker status updated", responseIssueTracker));
+        } else{
+            var currentIssueTrackerId = issueTrackerId;
+            const comment = {
+                issue_id: currentIssueTrackerId,
+                description: req.body.description,
+                created_by: req.body.user_id
+            }
+            const newComment = await Comments.create(comment);
+            await newComment.save();
+            if (!newComment) {next(commonItemNotFound("Comment not added"));}
+            
+            const responseIssueTracker = await IssueTracker.findById(currentIssueTrackerId).populate({
+                path: 'issue_id',
+                select: 'title description'
+            }).populate({
+                path: 'assigned_to',
+                select: 'username email'
+            });
+            commonConsole(responseIssueTracker, "from updateITStatusForUser /path:issue-controller.js [updateITStatusForUser] 853");
+            next(commonSuccess("Issue tracker status updated", responseIssueTracker));
+        }
+        
+    } catch (error) {
+        next(commonCatchBlock(error));
+    }
+}
+
+// get issue tracker review by user
+const getIssueTrackerReviewForUser = async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        const user = await UserModel.findOne({ _id: userId });
+        if (!user) { next(commonItemNotFound("User not found")); }
+        const pr = await PrModel.find({ creator_id: userId}).populate({
+            path: 'issuetracker_id',
+            select: 'issue_id assigned_by assigned_to status'
+        }).populate({
+            path: 'issue_id',
+            select: 'title description'
+        }).populate({
+            path: 'project_id',
+            select: 'title'
+        }).populate({
+            path: 'user_id',
+            select: 'username email'
+        }).populate({
+            path: 'creator_id',
+            select: 'username email'
+        }).sort({ updatedAt: -1 });
+        if (!pr) { next(commonItemNotFound("PR not found")); }
+        commonConsole(pr, "from getIssueTrackerReviewForUser /path:issue-controller.js [getIssueTrackerReviewForUser] 879");
+        next(commonSuccess("PR found for user", pr));
     } catch (error) {
         next(commonCatchBlock(error));
     }
@@ -765,7 +1000,7 @@ const getIssuesByUser = async (req, res, next) => {
         }
         var projects = [];
         if (user.role === 'admin') {
-            const issues = await Issue.find({ isDeleted: false }).populate({
+            const issues = await Issue.find({ isDeleted: false, visibility: "private" }).populate({
                 path: 'created_by',
                 select: 'username email'
             }).populate({
@@ -783,14 +1018,13 @@ const getIssuesByUser = async (req, res, next) => {
             for (var i = 0; i < projects.length; i++) {
                 projectIds.push(projects[i].projectId);
             }
-            const issues = await Issue.find({ project_id: projectIds, isDeleted: false }).populate({
+            const issues = await Issue.find({ project_id: projectIds, isDeleted: false, visibility: "private" }).populate({
                 path: 'created_by',
                 select: 'username email'
             }).populate({
                 path: 'project_id',
                 select: 'title'
             }).sort({ updatedAt: -1 });
-            // remove duplicates from issues and visibilityIssues
             commonConsole(issues, "from getIssuesByUser /path:issue-controller.js [getIssuesByUser] 621");
             next(commonSuccess("All issues by user", issues));
         }
@@ -803,7 +1037,7 @@ const getIssuesByUser = async (req, res, next) => {
 const getUsersToAssign = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        const issue = await Issue.findOne({ _id: issueId, isDeleted: false});
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false, visibility: "private"});
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
@@ -826,12 +1060,11 @@ const getUsersToAssign = async (req, res, next) => {
         for (var i = 0; i < users.length; i++) {
             for (var j = 0; j < projectUsers.length; j++) {
                 if (users[i]._id.toString() === projectUsers[j].userId.toString()) {
-                    console.log("j");
                     usersToAssign.push(users[i]);
                 }
             }
         }
-        commonConsole(usersToAssign, "from getUsersToAssign /path:issue-controller.js [getUsersToAssign] 834");
+        // commonConsole(usersToAssign, "from getUsersToAssign /path:issue-controller.js [getUsersToAssign] 834");
         next(commonSuccess("Users to assign", usersToAssign));
     }
     catch (error) {
@@ -842,12 +1075,12 @@ const getUsersToAssign = async (req, res, next) => {
 const transferIssue = async (req, res, next) => {
     try {
         const issueId = req.params.issueId;
-        const issue = await Issue.findOne({ _id: issueId, isDeleted: false });
+        const issue = await Issue.findOne({ _id: issueId, isDeleted: false, visibility: "private" });
         if (!issue) {
             next(commonItemNotFound("Issue not found"));
         }
         // update created by
-        await Issue.findOneAndUpdate({ _id: issueId, isDeleted: false }, { created_by: req.body.transferId, last_updated_by: req.body.last_updated_by });
+        await Issue.findOneAndUpdate({ _id: issueId, isDeleted: false, visibility: "private" }, { created_by: req.body.transferId, last_updated_by: req.body.last_updated_by });
         
         // update all comment why comment created by
         // await Comments.updateMany({
@@ -892,6 +1125,9 @@ module.exports = {
     updateIssueTrackerId,
     deleteIssueTracker,
     getIssueTrackerByProject,
+    getIssueTrackerByUser,
+    updateITStatusForUser,
+    getIssueTrackerReviewForUser,
     getPublicIssue,
     createPublicIssue,
     getIssuesByUser,

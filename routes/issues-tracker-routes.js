@@ -23,4 +23,13 @@ router.delete('/:issuetrackerid', Issue.deleteIssueTracker);
 // get issue tracker by project
 router.get('/project/:projectId', Issue.getIssueTrackerByProject);
 
+// get issue tracker for user
+router.get('/user/:userId', Issue.getIssueTrackerByUser);
+
+// update status of issue tracker
+router.put('/:issuetrackerid/updateStatus', Issue.updateITStatusForUser);
+
+// get issue tracker review
+router.get('/user/:userId/reviews', Issue.getIssueTrackerReviewForUser);
+
 module.exports = router;

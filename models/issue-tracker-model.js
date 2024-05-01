@@ -27,12 +27,6 @@ const issueTrackerSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Please provide a user who assigned this issue'],
     },
-    comment: {
-        type: String,
-        required: [true, 'Please provide a comment'],
-        minlength: 3,
-        maxlength: 255,
-    },
     status: {
         type: String,
         enum: ['open', 'in-progress', 'resolved', 'on-hold'],
@@ -44,7 +38,7 @@ const issueTrackerSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-const IssueTracker = mongoose.model('IssueTrack', issueTrackerSchema);
+const IssueTracker = mongoose.model('IssueTracker', issueTrackerSchema);
 module.exports = IssueTracker;
 
 // generate a json
