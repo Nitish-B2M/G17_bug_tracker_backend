@@ -44,10 +44,13 @@ const updateUser = async (req, res, next) => {
             next(commonItemNotFound("User not found"));
         }
         // first check is username is send in the request
-        if (req.body.updatedAt !== undefined) {
-            user.updatedAt = req.body.updatedAt;
-        }
+        if (req.body.username) { user.username = req.body.username; }
+        if (req.body.role) { user.role = req.body.role; }
+        if (req.body.email) { user.email = req.body.email; }
+        if (req.body.password) { user.password = req.body.password; }
+        if (req.body.updatedAt) { user.updatedAt = req.body.updatedAt; }
         await user.save();
+        commonConsole(user, "User updated :/users-controller.js [updateUser] 60");
         next(commonSuccess("User updated", user));
         
     } catch (error) {
@@ -79,7 +82,7 @@ const deleteUser = async (req, res, next) => {
         // get the user name from the request
         const userId = req.params.userId;
         // delete the user from the database
-        const deletedUser = await UserModel.findOneAndDelete({ _id: userId });
+        const deletedUser = await UserModel.findOneAndUpdate({ _id: userId }, { isDeleted: true });
         if (!deletedUser) {
             next(commonItemNotFound("User not found"));
         }
@@ -101,7 +104,7 @@ const getUsersByRole = async (req, res, next) => {
             const user = await UserModel.find({ role: roles[i] });
             users = users.concat(user);
         }
-        commonConsole(users, "All users by role :/users-controller.js [getUsersByRole] 100");
+        // commonConsole(users, "All users by role :/users-controller.js [getUsersByRole] 100");
         next(commonSuccess("All users by role", users));
     } catch (error) {
         next(commonCatchBlock(error));
