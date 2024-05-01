@@ -8,14 +8,10 @@ const authMiddleware = require("./middleware/authMiddleware");
 const MessageMiddleware = require("./middleware/messageMiddleware");
 const session = require('express-session');
 
-const port = process.env.PORT || 3300;
+const port = process.env.PORT || 3400;
 
 app.get("/", (req, res) => {
-    res.send(`Welcome to the Bug Tracking API<br>Use <br>
-    <a href="/api/users">/api/users</a>,<br> 
-    <a href="/api/projects">/api/projects</a>,<br>
-    <a href="/api/issues">/api/issues</a><br>
-    to access the data`);
+    res.send(`Welcome to the Bug Tracking API`);
 });
 
 // middleware
@@ -41,6 +37,7 @@ const issueRouter = require("./routes/issues-routes");
 const issueTrackerRouter = require("./routes/issues-tracker-routes");
 const publicIssueRouter = require("./routes/public-issue-routes");
 const authRouter = require("./routes/auth-routes");
+const notificationRouter = require("./routes/notification-routes");
 
 
 // use the middleware for all the routes
@@ -50,6 +47,7 @@ app.use("/api/projects", projectRouter);
 app.use("/api/issues", issueRouter);
 app.use("/api/issue-tracker", issueTrackerRouter);
 app.use("/api/public-issues", publicIssueRouter);
+app.use("/api/notifications", notificationRouter);
 
 // error handling middleware
 app.use(MessageMiddleware);

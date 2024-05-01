@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const md5 = require("md5");
 const UserModel = require("../models/user-model");
 const commonConsole = require("../common/commonConsole");
+const transporter = require('../common/emailConfigurationSetup');
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonBadRequest, commonUnauthorizedCall, commonAlreadyExists, commonNoContent, commonNotModified } = require("../common/commonStatusCode");
 
 const validateUser = (data) => {
@@ -53,6 +54,25 @@ const createUser = async (req, res, next) => {
             }
             const user = new UserModel(newUser);
             await user.save();
+            transporter.sendMail({
+                to: user.email,
+                from: 'nitishxsharma08@gmail.com',
+                subject: 'Signup successful',
+                html: `
+                Dear ${user.username},<br>
+                <h1>Welcome to Bug Tracker</h1>
+                <p>Your account has been created successfully</p><br>
+                <p>Username: ${user.username}</p>
+                <p>Email: ${user.email}</p>
+                <p>Created At: ${user.createdAt}</p>
+                <p>Thank you for signing up with us</p><br>
+                <p>For any queries, contact us at: <a href="mailto:"nitishxsharma08@gmail.com"> nitishxsharma08@gmail.com </a></p><br>
+                `
+            }).then(result => {
+                commonConsole(result, "Email sent successfully");
+            }).catch(err => {
+                commonConsole(err, "Email not sent");
+            });
 
             const data = {
                 userId: user._id,
