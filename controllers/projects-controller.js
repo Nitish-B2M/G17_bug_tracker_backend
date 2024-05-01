@@ -4,6 +4,7 @@ const IssueModel = require('../models/issue-model');
 const IssueCommentModel = require('../models/comment-model');
 const IssueTrackerModel = require('../models/issue-tracker-model');
 const commonConsole = require('../common/commonConsole');
+const UserModel = require('../models/user-model');
 const { commonSuccess, commonItemCreated, commonItemNotFound, commonCatchBlock, commonAlreadyExists } = require('../common/commonStatusCode');
 const transporter = require('../common/emailConfigurationSetup');
 
@@ -235,10 +236,25 @@ const assignUserToProject = async (req, res, next) => {
             }
             const newProjectUser = new ProjectUserModel(projectUser);
             await newProjectUser.save();
+            const sender = await UserModel.findOne({ _id: assignedBy.userId });
+            if (!sender) {
+                next(commonItemNotFound("User not found"));
+            }
+
+            if (sender.email === "nitish@gmail.com" || sender.email === "developer@gmail.com" || sender.email === "manushi2@gmail.com" || sender.email === "nitish-user@gmail.com"){
+                sender.email = "nitishxsharma08@gmail.com";
+            }
+            const receiver = await UserModel.findOne({ _id: users[i].value });
+            if (!receiver) {
+                next(commonItemNotFound("User not found"));
+            }
+            if (receiver.email === "nitish@gmail.com" || receiver.email === "developer@gmail.com" || receiver.email === "manushi2@gmail.com" || receiver.email === "nitish-user@gmail.com"){
+                receiver.email = "dump.yard.area@gmail.com";
+            }
 
             transporter.sendMail({
-                from: 'nitishxsharma08@gmail.com',
-                to: 'nitishssharma20@gnu.ac.in',
+                from: sender.email,
+                to: receiver.email,
                 subject: 'You are assigned to a ' + project.title + ' project',
                 text: 'You are assigned to a project: \'<b>' + project.title + '\'</b> by \'' + assignedBy.username + '\' (' + assignedBy.email + ')'
             }, (error, info) => {
